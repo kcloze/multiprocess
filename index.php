@@ -16,10 +16,14 @@ $config = [
     'logPath'   => __DIR__ . '/log',
     'bin'       => '/usr/bin/php',
     'binArgs'   => [__DIR__ . '/test.php', 'oop', '123'],
-
+    'workNum'   => 3,
 
 ];
 
 //启动
-$process = new Kcloze\MultiProcess\Process();
-$process->start($config);
+try {
+    $process = new Kcloze\MultiProcess\Process();
+    $process->start($config);
+} catch (\Exception $e) {
+    die('ALL ERROR: ' . $e->getMessage());
+}

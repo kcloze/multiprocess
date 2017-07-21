@@ -34,7 +34,8 @@ $process->start($config);
 
 ```
 ## 运行
-* php index.php
+* chmod -R u+r log/
+* php index.php >> log/worker.log 2>&1
 
 ![监控图](monitor.png)
 

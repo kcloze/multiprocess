@@ -20,8 +20,11 @@ class Process
     public function start($config)
     {
         //如果swoole版本低于1.9.1需要修改默认参数
-        \Swoole\Process::daemon(false,false);
-        $this->config = $config;
+        \Swoole\Process::daemon();
+        $this->config                               = $config;
+        if (isset($config['workNum'])) {
+            $this->workNum=$config['workNum'];
+        }
         //开启多个子进程
         for ($i = 0; $i < $this->workNum; $i++) {
             $this->reserveQueue($i);
@@ -29,7 +32,6 @@ class Process
         $this->registSignal($this->workers);
     }
 
-    
     public function reserveQueue($workNum)
     {
         $self = $this;
@@ -38,7 +40,12 @@ class Process
         $this->setProcessName('job master ' . $ppid . $self::PROCESS_NAME_LOG . $this->config['binArgs'][0]);
         $reserveProcess = new \Swoole\Process(function ($worker) use ($self, $workNum) {
             //执行一个外部程序
-            $worker->exec($this->config['bin'], $this->config['binArgs']);
+            try {
+                $worker->exec($this->config['bin'], $this->config['binArgs']);
+            } catch (Exception $e) {
+                $this->log('error: ' . $this->config['binArgs'][0] . $e->getMessage() . "\n");
+            }
+
             echo 'reserve process ' . $workNum . " is working ...\n";
         });
         $pid                 = $reserveProcess->start();
@@ -50,7 +57,7 @@ class Process
     public function registSignal($workers)
     {
         \Swoole\Process::signal(SIGTERM, function ($signo) {
-            $this->exitMaster('收到退出信号,退出主进程');
+            $this->exitMaster();
         });
         \Swoole\Process::signal(SIGCHLD, function ($signo) use (&$workers) {
             while (true) {
@@ -58,7 +65,6 @@ class Process
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $child_process = $workers[$pid];
-                    //unset($workers[$pid]);
                     echo "Worker Exit, kill_signal={$ret['signal']} PID=" . $pid . PHP_EOL;
                     $new_pid           = $child_process->start();
                     $workers[$new_pid] = $child_process;
@@ -73,7 +79,7 @@ class Process
     private function exitMaster()
     {
         @unlink($this->config['logPath'] . '/master.pid.log');
-        $this->log('Time: ' . microtime(true) . '主进程退出' . "\n");
+        $this->log('Time: ' . microtime(true) . '收到退出信号,主进程退出' . "\n");
         exit();
     }
 
