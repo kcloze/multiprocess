@@ -22,14 +22,14 @@ class Process
         //如果swoole版本低于1.9.1需要修改默认参数
         \Swoole\Process::daemon(false,false);
         $this->config = $config;
-        //开启多个进程消费队列
+        //开启多个子进程
         for ($i = 0; $i < $this->workNum; $i++) {
             $this->reserveQueue($i);
         }
         $this->registSignal($this->workers);
     }
 
-    //独立进程消费队列
+    
     public function reserveQueue($workNum)
     {
         $self = $this;
@@ -37,7 +37,7 @@ class Process
         file_put_contents($this->config['logPath'] . '/master.pid', $ppid . "\n");
         $this->setProcessName('job master ' . $ppid . $self::PROCESS_NAME_LOG . $this->config['binArgs'][0]);
         $reserveProcess = new \Swoole\Process(function ($worker) use ($self, $workNum) {
-            //设置进程名字
+            //执行一个外部程序
             $worker->exec($this->config['bin'], $this->config['binArgs']);
             echo 'reserve process ' . $workNum . " is working ...\n";
         });
