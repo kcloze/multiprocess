@@ -32,6 +32,8 @@ $process = new Kcloze\MultiProcess\Process();
 $process->start($config);
 
 ```
+![监控图](monitor.png)
+
 
 ## 感谢
 

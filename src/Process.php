@@ -19,7 +19,7 @@ class Process
 
     public function start($config)
     {
-        //\Swoole\Process::daemon(fasle);
+        \Swoole\Process::daemon(fasle,false);
         $this->config = $config;
         //开启多个进程消费队列
         for ($i = 0; $i < $this->workNum; $i++) {
@@ -34,10 +34,9 @@ class Process
         $self = $this;
         $ppid = getmypid();
         file_put_contents($this->config['logPath'] . '/master.pid', $ppid . "\n");
-        $this->setProcessName('job master ' . $ppid . $self::PROCESS_NAME_LOG);
+        $this->setProcessName('job master ' . $ppid . $self::PROCESS_NAME_LOG . $this->config['binArgs'][0]);
         $reserveProcess = new \Swoole\Process(function ($worker) use ($self, $workNum) {
             //设置进程名字
-            $this->setProcessName('job ' . $workNum . $self::PROCESS_NAME_LOG . ' ' . $this->config['binArgs'][0]);
             $worker->exec($this->config['bin'], $this->config['binArgs']);
             echo 'reserve process ' . $workNum . " is working ...\n";
         });
