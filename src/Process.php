@@ -19,7 +19,8 @@ class Process
 
     public function start($config)
     {
-        \Swoole\Process::daemon(fasle,false);
+        //如果swoole版本低于1.9.1需要修改默认参数
+        \Swoole\Process::daemon(false,false);
         $this->config = $config;
         //开启多个进程消费队列
         for ($i = 0; $i < $this->workNum; $i++) {
