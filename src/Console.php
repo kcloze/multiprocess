@@ -9,6 +9,8 @@
 
 namespace Kcloze\MultiProcess;
 
+use Exception;
+
 class Console
 {
     public $logger    = null;
@@ -32,7 +34,7 @@ class Console
         try {
             $process = new Process($this->config);
             $process->start();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->log($e->getMessage());
             die('ALL ERROR: ' . $e->getMessage());
         }

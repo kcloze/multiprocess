@@ -9,6 +9,8 @@
 
 namespace Kcloze\MultiProcess;
 
+use Exception;
+
 class Logs
 {
     const LEVEL_TRACE    = 'trace';
@@ -74,8 +76,9 @@ class Logs
     /**
      * [write 根据日志类型写到不同的日志文件].
      *
+     * @param mixed $logsAll
+     *
      * @return [type] [description]
-     * @param  mixed  $logsAll
      */
     public function write($logsAll)
     {
@@ -111,6 +114,7 @@ class Logs
 
     /**
      * Rotates log files.
+     *
      * @param mixed $file
      */
     protected function rotateFiles($file)
@@ -118,7 +122,7 @@ class Logs
         for ($i = $this->maxLogFiles; $i >= 0; --$i) {
             // $i == 0 is the original log file
             $rotateFile = $file . ($i === 0 ? '' : '.' . $i);
-            var_dump($rotateFile);
+            //var_dump($rotateFile);
             if (is_file($rotateFile)) {
                 // suppress errors because it's possible multiple processes enter into this section
                 if ($i === $this->maxLogFiles) {

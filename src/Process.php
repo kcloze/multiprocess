@@ -9,6 +9,8 @@
 
 namespace Kcloze\MultiProcess;
 
+use Exception;
+
 class Process
 {
     //shell脚本管理标示
@@ -22,7 +24,7 @@ class Process
     private $config   = [];
     private $status   ='running';
     private $ppid     =0;
-    
+
     public function __construct($config)
     {
         $this->config = $config;
@@ -33,7 +35,7 @@ class Process
     {
         //如果swoole版本低于1.9.1需要修改默认参数
         \Swoole\Process::daemon();
-        
+
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
         }
