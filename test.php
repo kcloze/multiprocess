@@ -9,7 +9,7 @@
 
 echo 'time: ' . date('Y-m-d H:i:s');
 
-sleep(2);
+sleep(10);
 
 $i= mt_rand(1, 5);
 var_dump($i);

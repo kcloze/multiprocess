@@ -11,7 +11,12 @@ namespace Kcloze\MultiProcess;
 
 class Process
 {
-    const PROCESS_NAME_LOG = ': reserve process'; //shell脚本管理标示
+    //shell脚本管理标示
+    const PROCESS_NAME_LOG = ': reserve process';
+    //pid保存文件
+    const PID_FILE = 'master.pid';
+    const LOG_FILE = 'application.log';
+
     private $reserveProcess;
     private $workers;
     private $workNum = 5;
@@ -21,10 +26,14 @@ class Process
     {
         //如果swoole版本低于1.9.1需要修改默认参数
         \Swoole\Process::daemon();
-        $this->config                               = $config;
+        $this->config = $config;
         if (isset($config['workNum'])) {
             $this->workNum=$config['workNum'];
         }
+        $ppid = getmypid();
+        file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $ppid . "\n");
+        $this->setProcessName('php job master ' . $ppid . self::PROCESS_NAME_LOG);
+
         //开启多个子进程
         for ($i = 0; $i < $this->workNum; $i++) {
             $this->reserveQueue($i);
@@ -32,25 +41,22 @@ class Process
         $this->registSignal($this->workers);
     }
 
-    public function reserveQueue($workNum)
+    public function reserveQueue($workOne)
     {
-        $self = $this;
-        $ppid = getmypid();
-        file_put_contents($this->config['logPath'] . '/master.pid', $ppid . "\n");
-        $this->setProcessName('job master ' . $ppid . $self::PROCESS_NAME_LOG . $this->config['binArgs'][0]);
-        $reserveProcess = new \Swoole\Process(function ($worker) use ($self, $workNum) {
+        $reserveProcess = new \Swoole\Process(function ($worker) use ($workOne) {
             //执行一个外部程序
             try {
+                $this->log('Worker exec: ' . $this->config['bin'] . ' ' . implode(' ', $this->config['binArgs']));
                 $worker->exec($this->config['bin'], $this->config['binArgs']);
             } catch (Exception $e) {
-                $this->log('error: ' . $this->config['binArgs'][0] . $e->getMessage() . "\n");
+                $this->log('error: ' . $this->config['binArgs'][0] . $e->getMessage());
             }
-
-            echo 'reserve process ' . $workNum . " is working ...\n";
+            $this->log('reserve process ' . $workOne . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
-        echo "reserve start...\n";
+        $this->log('reserve start...' . PHP_EOL);
+        echo 'reserve start...' . PHP_EOL;
     }
 
     //监控子进程
@@ -65,7 +71,7 @@ class Process
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $child_process = $workers[$pid];
-                    echo "Worker Exit, kill_signal={$ret['signal']} PID=" . $pid . PHP_EOL;
+                    $this->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
                     $new_pid           = $child_process->start();
                     $workers[$new_pid] = $child_process;
                     unset($workers[$pid]);
@@ -78,8 +84,8 @@ class Process
 
     private function exitMaster()
     {
-        @unlink($this->config['logPath'] . '/master.pid.log');
-        $this->log('Time: ' . microtime(true) . '收到退出信号,主进程退出' . "\n");
+        @unlink($this->config['logPath'] . '/' . self::PID_FILE);
+        $this->log('收到退出信号,主进程退出');
         exit();
     }
 
@@ -98,6 +104,7 @@ class Process
 
     private function log($txt)
     {
-        file_put_contents($this->config['logPath'] . '/worker.log', $txt . "\n", FILE_APPEND);
+        $txt='Time: ' . microtime(true) . PHP_EOL . $txt . PHP_EOL;
+        file_put_contents($this->config['logPath'] . '/' . self::LOG_FILE, $txt, FILE_APPEND);
     }
 }
