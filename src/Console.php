@@ -44,7 +44,7 @@ class Console
         if (file_exists($masterPidFile)) {
             $ppid=file_get_contents($masterPidFile);
             if (empty($ppid)) {
-                exit('service is not running');
+                exit('service is not running' . PHP_EOL);
             }
             if (function_exists('posix_kill')) {
                 $return=posix_kill($ppid, SIGTERM);
@@ -58,7 +58,7 @@ class Console
                 $this->logger->log('[pid: ' . $ppid . '] has been stopped success');
             }
         } else {
-            exit('service is not running');
+            exit('service is not running' . PHP_EOL);
         }
     }
 
@@ -66,6 +66,7 @@ class Console
     {
         $this->logger->log('restarting...');
         $this->stop();
+        sleep(3);
         $this->start();
     }
 
