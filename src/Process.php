@@ -43,7 +43,7 @@ class Process
         $this->ppid = getmypid();
         $this->logger->log('process start pid: ' . $this->ppid);
         file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
-        $this->setProcessName('php job master ' . $this->ppid . self::PROCESS_NAME_LOG);
+        $this->setProcessName('php job master: ' . $this->ppid . self::PROCESS_NAME_LOG);
         foreach ($this->config['exec'] as $key => $value) {
             if (!isset($value['bin']) || !isset($value['binArgs'])) {
                 throw new Exception('config bin/binArgs must be not null!');
@@ -70,9 +70,11 @@ class Process
             } catch (Exception $e) {
                 $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
+            $this->setProcessName('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
             $this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
+        $reserveProcess->name('php server.php: worker');
         $this->workers[$pid] = $reserveProcess;
         $this->logger->log('reserve start...' . $pid . PHP_EOL);
         echo 'reserve start...' . $pid . PHP_EOL;
