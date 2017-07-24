@@ -114,8 +114,6 @@ WORKFLOWS
       help [command]
       Show this help, or workflow help for command.
 
-      list
-      Show a list of available daemons.
 
       restart
       Stop, then start the standard daemon loadout.
@@ -125,8 +123,6 @@ WORKFLOWS
       is appropriate for most installs. Use phd launch to customize which
       daemons are launched.
 
-      status
-      Show status of running daemons.
 
       stop
       Stop all running daemons, or specific daemons identified by PIDs. Use
