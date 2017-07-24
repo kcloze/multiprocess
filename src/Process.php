@@ -21,42 +21,55 @@ class Process
     private $workers;
     private $workNum = 5;
     private $config  = [];
+    private $status  ='running';
+    private $bin     ='';
+    private $binArgs =[];
 
     public function start($config)
     {
         //如果swoole版本低于1.9.1需要修改默认参数
         \Swoole\Process::daemon();
         $this->config = $config;
-        if (isset($config['workNum'])) {
-            $this->workNum=$config['workNum'];
+        if (!isset($this->config['exec'])) {
+            throw new Exception('config exec must be not null!');
         }
-        $ppid = getmypid();
-        file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $ppid . "\n");
-        $this->setProcessName('php job master ' . $ppid . self::PROCESS_NAME_LOG);
 
-        //开启多个子进程
-        for ($i = 0; $i < $this->workNum; $i++) {
-            $this->reserveQueue($i);
+        $ppid = getmypid();
+        $this->log('process start pid: ' . $ppid);
+        //file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $ppid . "\n");
+        $this->setProcessName('php job master ' . $ppid . self::PROCESS_NAME_LOG);
+        foreach ($this->config['exec'] as $key => $value) {
+            if (!isset($value['bin']) || !isset($value['binArgs'])) {
+                throw new Exception('config bin/binArgs must be not null!');
+            }
+
+            $workOne['bin']    =$value['bin'];
+            $workOne['binArgs']=$value['binArgs'];
+            //开启多个子进程
+            for ($i = 0; $i < $value['workNum']; $i++) {
+                $this->reserveQueue($i, $workOne);
+            }
         }
+
         $this->registSignal($this->workers);
     }
 
-    public function reserveQueue($workOne)
+    public function reserveQueue($num, $workOne)
     {
-        $reserveProcess = new \Swoole\Process(function ($worker) use ($workOne) {
+        $reserveProcess = new \Swoole\Process(function ($worker) use ($num, $workOne) {
             //执行一个外部程序
             try {
-                $this->log('Worker exec: ' . $this->config['bin'] . ' ' . implode(' ', $this->config['binArgs']));
-                $worker->exec($this->config['bin'], $this->config['binArgs']);
+                $this->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
+                $worker->exec($workOne['bin'], $workOne['binArgs']);
             } catch (Exception $e) {
-                $this->log('error: ' . $this->config['binArgs'][0] . $e->getMessage());
+                $this->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
-            $this->log('reserve process ' . $workOne . ' is working ...');
+            $this->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
-        $this->log('reserve start...' . PHP_EOL);
-        echo 'reserve start...' . PHP_EOL;
+        $this->log('reserve start...' . $pid . PHP_EOL);
+        echo 'reserve start...' . $pid . PHP_EOL;
     }
 
     //监控子进程
@@ -72,9 +85,11 @@ class Process
                     $pid           = $ret['pid'];
                     $child_process = $workers[$pid];
                     $this->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
-                    $new_pid           = $child_process->start();
-                    $workers[$new_pid] = $child_process;
-                    unset($workers[$pid]);
+                    if ($this->status == 'running') {
+                        $new_pid           = $child_process->start();
+                        $workers[$new_pid] = $child_process;
+                        unset($workers[$pid]);
+                    }
                 } else {
                     break;
                 }
@@ -86,6 +101,12 @@ class Process
     {
         @unlink($this->config['logPath'] . '/' . self::PID_FILE);
         $this->log('收到退出信号,主进程退出');
+        $this->status == 'stop';
+        //杀掉子进程
+        foreach ($this->workers as $pid => $worker) {
+            \Swoole\Process::kill($pid);
+            $this->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
+        }
         exit();
     }
 

@@ -9,10 +9,10 @@
 
 echo 'time: ' . date('Y-m-d H:i:s');
 
-sleep(100);
+sleep(10);
 
 $i= mt_rand(1, 5);
 var_dump($i);
-// if ($i == 3) {
-//     NotExit();
-// }
+if ($i == 3) {
+    NotExit();
+}
