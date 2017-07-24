@@ -2,7 +2,7 @@
 
 /*
  * This file is part of PHP CS Fixer.
- * (c) kcloze <pei.greet@qq.com>
+ * (c) pei.greet <pei.greet@qq.com>
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
@@ -92,11 +92,15 @@ class Process
                     $pid           = $ret['pid'];
                     $child_process = $this->workers[$pid];
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
+                    $this->logger->log('Worker count: ' . count($this->workers));
                     if ($this->status == 'running') {
+                        $this->logger->log('Worker status: ' . $this->status);
                         $new_pid           = $child_process->start();
                         $this->workers[$new_pid] = $child_process;
+                        $this->logger->log('Worker count: ' . count($this->workers));
                         unset($this->workers[$pid]);
                     }
+                    $this->logger->log('Worker count: ' . count($this->workers));
                 } else {
                     break;
                 }
@@ -108,11 +112,17 @@ class Process
     {
         @unlink($this->config['logPath'] . '/' . self::PID_FILE);
         $this->logger->log('收到退出信号,[' . $this->ppid . ']主进程退出');
-        $this->status == 'stop';
+        $this->status = 'stop';
+        $this->logger->log('Worker status: ' . $this->status);
         //杀掉子进程
+        $this->logger->log('Worker count: ' . count($this->workers));
         foreach ($this->workers as $pid => $worker) {
-            \Swoole\Process::kill($pid);
+            //\Swoole\Process::kill($pid);
+            //平滑退出，用exit；强制退出用kill
+            $worker->exit(0);
+            unset($this->workers[$pid]);
             $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
+            $this->logger->log('Worker count: ' . count($this->workers));
         }
         exit();
     }
