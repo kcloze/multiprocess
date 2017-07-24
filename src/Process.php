@@ -39,7 +39,7 @@ class Process
         }
 
         $this->ppid = getmypid();
-        $this->log('process start pid: ' . $this->ppid);
+        $this->logger->log('process start pid: ' . $this->ppid);
         file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
         $this->setProcessName('php job master ' . $this->ppid . self::PROCESS_NAME_LOG);
         foreach ($this->config['exec'] as $key => $value) {
@@ -63,16 +63,16 @@ class Process
         $reserveProcess = new \Swoole\Process(function ($worker) use ($num, $workOne) {
             //执行一个外部程序
             try {
-                $this->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
+                $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
                 $worker->exec($workOne['bin'], $workOne['binArgs']);
             } catch (Exception $e) {
-                $this->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
+                $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
-            $this->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
+            $this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
-        $this->log('reserve start...' . $pid . PHP_EOL);
+        $this->logger->log('reserve start...' . $pid . PHP_EOL);
         echo 'reserve start...' . $pid . PHP_EOL;
     }
 
@@ -89,7 +89,7 @@ class Process
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $child_process = $this->workers[$pid];
-                    $this->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
+                    $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
                     if ($this->status == 'running') {
                         $new_pid           = $child_process->start();
                         $this->workers[$new_pid] = $child_process;
@@ -105,12 +105,12 @@ class Process
     private function exit()
     {
         @unlink($this->config['logPath'] . '/' . self::PID_FILE);
-        $this->log('收到退出信号,[' . $this->ppid . ']主进程退出');
+        $this->logger->log('收到退出信号,[' . $this->ppid . ']主进程退出');
         $this->status == 'stop';
         //杀掉子进程
         foreach ($this->workers as $pid => $worker) {
             \Swoole\Process::kill($pid);
-            $this->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
+            $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
         }
         exit();
     }
