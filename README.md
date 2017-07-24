@@ -10,32 +10,35 @@
 ## 安装
 * git clone https://github.com/kcloze/multiprocess.git
 * composer install
-* 根据自己业务配置
+* 根据自己业务配置,修改config.php
 ```
     'bin'       => '/usr/bin/php',
     'binArgs'   => [__DIR__ . '/test.php', 'oop', '123'],
 ```
 
-## 实例
+## 配置实例
 
 ```
-$config = [
-
     'logPath'   => __DIR__ . '/log',
-    'bin'       => '/usr/bin/php',
-    'binArgs'   => [__DIR__ . '/test.php', 'oop', '123'],
-
-
-];
-
-//启动
-$process = new Kcloze\MultiProcess\Process();
-$process->start($config);
+    'exec'      => [
+        [
+            'token'     => 'kcloze-test-1',
+            'bin'       => '/usr/bin/php',
+            'binArgs'   => [__DIR__ . '/test.php', 'oop', '123'],
+            'workNum'   => 3,
+        ],
+        [
+            'token'     => 'kcloze-test-2',
+            'bin'       => '/usr/bin/php',
+            'binArgs'   => [__DIR__ . '/test2.php', 'oop', '456'],
+            'workNum'   => 5,
+        ],
+    ],
 
 ```
 ## 运行
 * chmod -R u+r log/
-* php index.php >> log/worker.log 2>&1
+* php run.php start >> log/worker.log 2>&1
 
 ![监控图](monitor.png)
 

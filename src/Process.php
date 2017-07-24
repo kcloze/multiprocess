@@ -17,27 +17,31 @@ class Process
     const PID_FILE = 'master.pid';
     const LOG_FILE = 'application.log';
 
-    private $reserveProcess;
     private $workers;
-    private $workNum = 5;
-    private $config  = [];
-    private $status  ='running';
-    private $bin     ='';
-    private $binArgs =[];
+    private $workNum  = 5;
+    private $config   = [];
+    private $status   ='running';
+    private $ppid     =0;
+    
+    public function __construct($config)
+    {
+        $this->config = $config;
+        $this->logger = new Logs($config['logPath']);
+    }
 
-    public function start($config)
+    public function start()
     {
         //如果swoole版本低于1.9.1需要修改默认参数
-        \Swoole\Process::daemon();
-        $this->config = $config;
+        \Swoole\Process::daemon(true,true);
+        
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
         }
 
-        $ppid = getmypid();
-        $this->log('process start pid: ' . $ppid);
-        //file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $ppid . "\n");
-        $this->setProcessName('php job master ' . $ppid . self::PROCESS_NAME_LOG);
+        $this->ppid = getmypid();
+        $this->log('process start pid: ' . $this->ppid);
+        file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
+        $this->setProcessName('php job master ' . $this->ppid . self::PROCESS_NAME_LOG);
         foreach ($this->config['exec'] as $key => $value) {
             if (!isset($value['bin']) || !isset($value['binArgs'])) {
                 throw new Exception('config bin/binArgs must be not null!');
@@ -51,7 +55,7 @@ class Process
             }
         }
 
-        $this->registSignal($this->workers);
+        $this->registSignal();
     }
 
     public function reserveQueue($num, $workOne)
@@ -73,22 +77,23 @@ class Process
     }
 
     //监控子进程
-    public function registSignal($workers)
+    public function registSignal()
     {
+        //主进程收到退出信号，先把子进程结束，再结束自身
         \Swoole\Process::signal(SIGTERM, function ($signo) {
-            $this->exitMaster();
+            $this->exit();
         });
-        \Swoole\Process::signal(SIGCHLD, function ($signo) use (&$workers) {
+        \Swoole\Process::signal(SIGCHLD, function ($signo) {
             while (true) {
                 $ret = \Swoole\Process::wait(false);
                 if ($ret) {
                     $pid           = $ret['pid'];
-                    $child_process = $workers[$pid];
+                    $child_process = $this->workers[$pid];
                     $this->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
                     if ($this->status == 'running') {
                         $new_pid           = $child_process->start();
-                        $workers[$new_pid] = $child_process;
-                        unset($workers[$pid]);
+                        $this->workers[$new_pid] = $child_process;
+                        unset($this->workers[$pid]);
                     }
                 } else {
                     break;
@@ -97,10 +102,10 @@ class Process
         });
     }
 
-    private function exitMaster()
+    private function exit()
     {
         @unlink($this->config['logPath'] . '/' . self::PID_FILE);
-        $this->log('收到退出信号,主进程退出');
+        $this->log('收到退出信号,[' . $this->ppid . ']主进程退出');
         $this->status == 'stop';
         //杀掉子进程
         foreach ($this->workers as $pid => $worker) {
