@@ -71,7 +71,6 @@ class Process
             } catch (Exception $e) {
                 $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
-            //$this->setProcessName('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
             $worker->name('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
             $this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
@@ -120,9 +119,9 @@ class Process
         //杀掉子进程
         $this->logger->log('Worker count: ' . count($this->workers));
         foreach ($this->workers as $pid => $worker) {
-            //\Swoole\Process::kill($pid);
             //平滑退出，用exit；强制退出用kill
-            $worker->exit(0);
+            \Swoole\Process::kill($pid);
+            //$worker->exit(-1);
             unset($this->workers[$pid]);
             $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
             $this->logger->log('Worker count: ' . count($this->workers));
