@@ -14,7 +14,7 @@ use Exception;
 class Process
 {
     //shell脚本管理标示
-    const PROCESS_NAME_LOG = ': reserve process';
+    const PROCESS_NAME_LOG = ':ycf-multi-process';
     //pid保存文件
     const PID_FILE = 'master.pid';
     const LOG_FILE = 'application.log';
@@ -50,7 +50,8 @@ class Process
             }
 
             $workOne['bin']    =$value['bin'];
-            $workOne['binArgs']=$value['binArgs'];
+            //子进程带上通用识别文字，方便ps查询进程
+            $workOne['binArgs']=array_merge($value['binArgs'],[self::PROCESS_NAME_LOG]);
             //开启多个子进程
             for ($i = 0; $i < $value['workNum']; $i++) {
                 $this->reserveQueue($i, $workOne);
@@ -70,11 +71,11 @@ class Process
             } catch (Exception $e) {
                 $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
-            $this->setProcessName('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
+            //$this->setProcessName('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
+            $worker->name('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
             $this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
-        $reserveProcess->name('php server.php: worker');
         $this->workers[$pid] = $reserveProcess;
         $this->logger->log('reserve start...' . $pid . PHP_EOL);
         echo 'reserve start...' . $pid . PHP_EOL;
