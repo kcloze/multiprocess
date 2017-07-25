@@ -2,7 +2,7 @@
 
 /*
  * This file is part of PHP CS Fixer.
- * (c) pei.greet <pei.greet@qq.com>
+ * (c) kcloze <pei.greet@qq.com>
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
@@ -33,8 +33,7 @@ class Process
 
     public function start()
     {
-        
-        \Swoole\Process::daemon(true,true);
+        \Swoole\Process::daemon(true, true);
 
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
@@ -51,7 +50,7 @@ class Process
 
             $workOne['bin']    =$value['bin'];
             //子进程带上通用识别文字，方便ps查询进程
-            $workOne['binArgs']=array_merge($value['binArgs'],[self::PROCESS_NAME_LOG]);
+            $workOne['binArgs']=array_merge($value['binArgs'], [self::PROCESS_NAME_LOG]);
             //开启多个子进程
             for ($i = 0; $i < $value['workNum']; $i++) {
                 $this->reserveQueue($i, $workOne);
@@ -141,5 +140,4 @@ class Process
             swoole_set_process_name($name);
         }
     }
-
 }
