@@ -33,8 +33,8 @@ class Process
 
     public function start()
     {
-        //如果swoole版本低于1.9.1需要修改默认参数
-        \Swoole\Process::daemon();
+        
+        \Swoole\Process::daemon(true,true);
 
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
