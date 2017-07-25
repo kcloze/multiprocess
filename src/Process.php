@@ -142,9 +142,4 @@ class Process
         }
     }
 
-    private function log($txt)
-    {
-        $txt='Time: ' . microtime(true) . PHP_EOL . $txt . PHP_EOL;
-        file_put_contents($this->config['logPath'] . '/' . self::LOG_FILE, $txt, FILE_APPEND);
-    }
 }
