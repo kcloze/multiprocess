@@ -121,7 +121,7 @@ class Process
         foreach ($this->workers as $pid => $worker) {
             //平滑退出，用exit；强制退出用kill
             \Swoole\Process::kill($pid);
-            //$worker->exit(-1);
+            //$worker->exit(0);
             unset($this->workers[$pid]);
             $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
             $this->logger->log('Worker count: ' . count($this->workers));
