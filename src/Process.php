@@ -14,7 +14,7 @@ use Exception;
 class Process
 {
     //shell脚本管理标示
-    const PROCESS_NAME_LOG = ':ycf-multi-process';
+    const PROCESS_NAME_LOG = ':kcloze-multi-process';
     //pid保存文件
     const PID_FILE = 'master.pid';
     const LOG_FILE = 'application.log';
