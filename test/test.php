@@ -2,10 +2,12 @@
 
 /*
  * This file is part of PHP CS Fixer.
- * (c) kcloze <pei.greet@qq.com>
+ *  * (c) kcloze <pei.greet@qq.com>
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
+
+ini_set('date.timezone', 'Asia/Shanghai');
 
 echo 'time: ' . date('Y-m-d H:i:s');
 

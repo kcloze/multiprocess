@@ -1,25 +1,28 @@
 # multiprocess
-* 基于swoole的脚本管理，用于多进程和守护进程管理
-* 可轻松让普通PHP脚本变守护进程和多进程执行
-* 进程个数可配置，可以根据配置一次性执行多条命令
-* 子进程异常退出时,自动重启
-* 主进程异常退出时,子进程在干完手头活后退出(平滑退出)
+
+* Based on swoole script management, for multi-process and daemon management
+* Easy to make the common PHP script change daemon and multi-process execution
+* The number of processes can be configured and multiple commands can be executed at once
+* Automatic restart when the child process exits in an abnormal way
+* When the main process exits in an abnormal way, the sub-process exits (smoothing out) after the work is done.
+
+## [中文文档](README.zh.md)
 
 
-## 场景
+## Scenario
 
-* PHP需要跑一个或多个cli脚本消费队列（常驻）
-* 实现脚本退出后自动拉起，防止消费队列不工作，影响业务
-* 其实supervisor可以轻松做个事情，这个只是PHP的另一种实现，不需要换技术栈
+* PHP requires running one or more cli script consumption queues (resident)
+* The implementation of the script automatically pulls up after the exit, preventing the consumption queue from working, affecting the business
+* In fact, the supervisor can easily do something, this is just another implementation of PHP, no need to change the technology stack
 
-## 安装
+## Installation
 * git clone https://github.com/kcloze/multiprocess.git
 * composer install
-* 根据自己业务配置,修改config.php
+* modify config.php based on your business configuration
 
 
-## 配置实例
-* 一次性执行多个命令
+## Configure the instance
+* Execute multiple commands at once
 ```
     'logPath'   => __DIR__ . '/log',
     'exec'      => [
@@ -38,29 +41,29 @@
     ],
 
 ```
-## 运行
+## Running
 
-### 1.启动
+### 1.start
 * chmod -R u+r log/
 * php run.php start >> log/worker.log 2>&1
-### 2.停止
+### 2.stop
 * php run.php stop
-### 3.重启
+### 3.restart
 * php run.php restart
-### 4.监控
+### 4.monitor
 * ps -ef|grep 'multi-process'
 
 
 
 
-![监控图](monitor.png)
+![monitor img](monitor.png)
 
 
-## 感谢
+## Thanks
 
 * [swoole](http://www.swoole.com/)
 
-## 联系
+## Contact
 
-qq群：141059677
+QQ group：141059677
 
