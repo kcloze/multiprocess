@@ -1,4 +1,4 @@
-# multiprocess
+# multiprocess [中文文档](README.zh.md)
 
 * Based on swoole script management, for multi-process and daemon management
 * Easy to make the common PHP script change daemon and multi-process execution
@@ -6,7 +6,6 @@
 * Automatic restart when the child process exits in an abnormal way
 * When the main process exits in an abnormal way, the sub-process exits (smoothing out) after the work is done.
 
-## [中文文档](README.zh.md)
 
 
 ## Scenario
