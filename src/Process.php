@@ -66,12 +66,12 @@ class Process
             //执行一个外部程序
             try {
                 $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
+                //$worker->name('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', [$workOne['binArgs'][0],$workOne['binArgs'][1]]));
                 $worker->exec($workOne['bin'], $workOne['binArgs']);
             } catch (Exception $e) {
                 $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage());
             }
-            $worker->name('php job slave: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']));
-            $this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
+            //$this->logger->log('reserve process ' . $workOne['binArgs'][0] . ' is working ...');
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
