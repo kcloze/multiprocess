@@ -8,12 +8,12 @@
  */
 
 ini_set('date.timezone', 'Asia/Shanghai');
-
-echo 'time: ' . date('Y-m-d H:i:s');
-while (true) {
-    echo '123' . PHP_EOL;
-    sleep(1);
-}
+sleep(10);
+echo 'test2 time: ' . date('Y-m-d H:i:s');
+// while (true) {
+//     echo '123' . PHP_EOL;
+//     sleep(1);
+// }
 // sleep(10);
 
 // $i= mt_rand(1, 5);

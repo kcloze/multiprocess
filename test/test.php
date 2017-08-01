@@ -9,7 +9,7 @@
 
 ini_set('date.timezone', 'Asia/Shanghai');
 
-echo 'time: ' . date('Y-m-d H:i:s');
+echo 'test1 time: ' . date('Y-m-d H:i:s');
 
 sleep(100);
 

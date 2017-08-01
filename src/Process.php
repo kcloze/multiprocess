@@ -53,14 +53,20 @@ class Process
             $workOne['binArgs']=array_merge($value['binArgs'], [self::PROCESS_NAME_LOG]);
             //开启多个子进程
             for ($i = 0; $i < $value['workNum']; $i++) {
-                $this->reserveQueue($i, $workOne);
+                $this->reserveExec($i, $workOne);
             }
         }
 
         $this->registSignal();
     }
 
-    public function reserveQueue($num, $workOne)
+    /**
+     * 启动子进程，跑业务代码
+     *
+     * @param [type] $num
+     * @param [type] $workOne
+     */
+    public function reserveExec($num, $workOne)
     {
         $reserveProcess = new \Swoole\Process(function ($worker) use ($num, $workOne) {
             //执行一个外部程序
@@ -84,6 +90,9 @@ class Process
     {
         //主进程收到退出信号，先把子进程结束，再结束自身
         \Swoole\Process::signal(SIGTERM, function ($signo) {
+            $this->exit(true);
+        });
+        \Swoole\Process::signal(SIGUSR1, function ($signo) {
             $this->exit();
         });
         \Swoole\Process::signal(SIGCHLD, function ($signo) {
@@ -109,22 +118,31 @@ class Process
         });
     }
 
-    private function exit()
+    /**
+     * 主进程退出后，执行流程.
+     *
+     * @param bool $killChild 是否强杀子进程
+     */
+    private function exit($killChild=false)
     {
         @unlink($this->config['logPath'] . '/' . self::PID_FILE);
         $this->logger->log('收到退出信号,[' . $this->ppid . ']主进程退出');
         $this->status = 'stop';
         $this->logger->log('Worker status: ' . $this->status);
         //杀掉子进程
-        $this->logger->log('Worker count: ' . count($this->workers));
-        foreach ($this->workers as $pid => $worker) {
-            //平滑退出，用exit；强制退出用kill
-            \Swoole\Process::kill($pid);
-            //$worker->exit(0);
-            unset($this->workers[$pid]);
-            $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
-            $this->logger->log('Worker count: ' . count($this->workers));
+        $this->logger->log('Kill Worker count: ' . count($this->workers));
+        //是否强制杀子进程
+        if (true === $killChild) {
+            foreach ($this->workers as $pid => $worker) {
+                //平滑退出，用exit；强制退出用kill
+                \Swoole\Process::kill($pid);
+                //$worker->exit(0);
+                unset($this->workers[$pid]);
+                $this->logger->log('主进程收到退出信号,[' . $pid . ']子进程跟着退出');
+                $this->logger->log('Worker count: ' . count($this->workers));
+            }
         }
+
         exit();
     }
 
