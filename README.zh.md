@@ -43,11 +43,13 @@
 ### 1.启动
 * chmod -R u+r log/
 * php run.php start >> log/worker.log 2>&1
-### 2.停止
+### 2.修改配置/代码之后，平滑重启
+* php run.php reload >> log/worker.log 2>&1
+### 3.停止
 * php run.php stop
-### 3.重启
-* php run.php restart
-### 4.监控
+### 4.重启
+* php run.php restart >> log/worker.log 2>&1
+### 5.监控
 * ps -ef|grep 'multi-process'
 
 

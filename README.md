@@ -45,11 +45,13 @@
 ### 1.start
 * chmod -R u+r log/
 * php run.php start >> log/worker.log 2>&1
-### 2.stop
+### 2.reload
+* php run.php reload >> log/worker.log 2>&1
+### 3.stop
 * php run.php stop
-### 3.restart
-* php run.php restart
-### 4.monitor
+### 4.restart
+* php run.php restart >> log/worker.log 2>&1
+### 5.monitor
 * ps -ef|grep 'multi-process'
 
 
