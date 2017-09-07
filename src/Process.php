@@ -31,15 +31,15 @@ class Process
         $this->logger = new Logs($config['logPath']);
     }
 
-    public function start()
+    public function start($command)
     {
+        $this->ppid = getmypid();
+        $this->checkMasterProcess($command);
         \Swoole\Process::daemon(true, true);
 
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
         }
-
-        $this->ppid = getmypid();
         $this->logger->log('process start pid: ' . $this->ppid);
         file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
         $this->setProcessName('php job master: ' . $this->ppid . self::PROCESS_NAME_LOG);
@@ -156,6 +156,24 @@ class Process
         //mac os不支持进程重命名
         if (function_exists('swoole_set_process_name') && PHP_OS != 'Darwin') {
             swoole_set_process_name($name);
+        }
+    }
+
+    private function checkMasterProcess($command)
+    {
+        // Get master process PID.
+        $pidFile         =$this->config['logPath'] . '/' . self::PID_FILE;
+        $master_pid      = @file_get_contents($pidFile);
+        $master_is_alive = $master_pid && @posix_kill($master_pid, 0);
+        // Master is still alive?
+        if ($master_is_alive) {
+            if ($command === 'start' && posix_getpid() != $master_pid) {
+                $this->logger->log("MultiProcess[$master_pid] already running");
+                exit("MultiProcess[$master_pid] already running");
+            }
+        } elseif ($command !== 'start' && $command !== 'restart') {
+            $this->logger->log("MultiProcess[$master_pid] not run");
+            exit("MultiProcess[$master_pid] not run");
         }
     }
 }

@@ -15,6 +15,7 @@ class Console
 {
     public $logger    = null;
     private $config   = [];
+    private $opt      = '';
 
     public function __construct($config)
     {
@@ -33,18 +34,19 @@ class Console
         $this->logger->log('starting...');
         try {
             $process = new Process($this->config);
-            $process->start();
+            $process->start($this->opt);
         } catch (Exception $e) {
             $this->logger->log($e->getMessage());
             die('ALL ERROR: ' . $e->getMessage());
         }
     }
+
     /**
      * 给主进程发送信号：
      *  SIGUSR1 自定义信号，让子进程平滑退出
-     *  SIGTERM 程序终止，让子进程强制退出
+     *  SIGTERM 程序终止，让子进程强制退出.
+     *
      * @param [type] $signal
-     * @return void
      */
     public function stop($signal=SIGTERM)
     {
@@ -77,6 +79,7 @@ class Console
         sleep(3);
         $this->start();
     }
+
     public function reload()
     {
         $this->logger->log('reload...');
@@ -92,7 +95,8 @@ class Console
             $this->printHelpMessage();
             exit(1);
         }
-        $opt=$argv[1];
+        $opt      =$argv[1];
+        $this->opt=$opt;
         switch ($opt) {
             case 'start':
                 $this->start();
