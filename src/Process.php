@@ -2,7 +2,7 @@
 
 /*
  * This file is part of PHP CS Fixer.
- * (c) kcloze <pei.greet@qq.com>
+ *  * (c) kcloze <pei.greet@qq.com>
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
@@ -33,15 +33,15 @@ class Process
 
     public function start($command)
     {
+        \Swoole\Process::daemon(true, true);
         $this->ppid = getmypid();
         $this->checkMasterProcess($command);
-        \Swoole\Process::daemon(true, true);
 
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
         }
-        $this->logger->log('process start pid: ' . $this->ppid);
-        file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
+        $this->logger->log('process start pid: ' . $this->ppisd);
+
         $this->setProcessName('php job master: ' . $this->ppid . self::PROCESS_NAME_LOG);
         foreach ($this->config['exec'] as $key => $value) {
             if (!isset($value['bin']) || !isset($value['binArgs'])) {
@@ -164,16 +164,21 @@ class Process
         // Get master process PID.
         $pidFile         =$this->config['logPath'] . '/' . self::PID_FILE;
         $master_pid      = @file_get_contents($pidFile);
+        if (!$master_pid) {
+            file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
+
+            return;
+        }
         $master_is_alive = $master_pid && @posix_kill($master_pid, 0);
         // Master is still alive?
         if ($master_is_alive) {
-            if ($command === 'start' && posix_getpid() != $master_pid) {
+            if ($command === 'start' && $this->ppid != $master_pid) {
                 $this->logger->log("MultiProcess[$master_pid] already running");
-                exit("MultiProcess[$master_pid] already running");
+                exit();
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
             $this->logger->log("MultiProcess[$master_pid] not run");
-            exit("MultiProcess[$master_pid] not run");
+            exit();
         }
     }
 }
