@@ -2,7 +2,7 @@
 
 /*
  * This file is part of PHP CS Fixer.
- *  * (c) kcloze <pei.greet@qq.com>
+ * (c) kcloze <pei.greet@qq.com>
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
@@ -33,14 +33,12 @@ class Process
 
     public function start($command)
     {
-        \Swoole\Process::daemon(true, true);
-        $this->ppid = getmypid();
         $this->checkMasterProcess($command);
 
         if (!isset($this->config['exec'])) {
             throw new Exception('config exec must be not null!');
         }
-        $this->logger->log('process start pid: ' . $this->ppisd);
+        $this->logger->log('process start pid: ' . $this->ppid);
 
         $this->setProcessName('php job master: ' . $this->ppid . self::PROCESS_NAME_LOG);
         foreach ($this->config['exec'] as $key => $value) {
@@ -100,13 +98,13 @@ class Process
                 $ret = \Swoole\Process::wait(false);
                 if ($ret) {
                     $pid           = $ret['pid'];
-                    $child_process = $this->workers[$pid];
+                    $childProcess = $this->workers[$pid];
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid);
                     $this->logger->log('Worker count: ' . count($this->workers));
                     if ($this->status == 'running') {
                         $this->logger->log('Worker status: ' . $this->status);
-                        $new_pid           = $child_process->start();
-                        $this->workers[$new_pid] = $child_process;
+                        $new_pid           = $childProcess->start();
+                        $this->workers[$new_pid] = $childProcess;
                         $this->logger->log('Worker count: ' . count($this->workers));
                         unset($this->workers[$pid]);
                     }
@@ -163,22 +161,29 @@ class Process
     {
         // Get master process PID.
         $pidFile         =$this->config['logPath'] . '/' . self::PID_FILE;
-        $master_pid      = @file_get_contents($pidFile);
-        if (!$master_pid) {
+        $masterPid       = @file_get_contents($pidFile);
+        //服务没有启动
+        if (!$masterPid && ($command === 'start' || $command === 'restart')) {
+            //变成daemon pid会变
+            \Swoole\Process::daemon(true, true);
+            $this->ppid = getmypid();
             file_put_contents($this->config['logPath'] . '/' . self::PID_FILE, $this->ppid);
 
             return;
         }
-        $master_is_alive = $master_pid && @posix_kill($master_pid, 0);
+        $this->ppid = getmypid();
+        $masterIsAlive = $masterPid && @posix_kill($masterPid, 0);
         // Master is still alive?
-        if ($master_is_alive) {
-            if ($command === 'start' && $this->ppid != $master_pid) {
-                $this->logger->log("MultiProcess[$master_pid] already running");
-                exit();
+        if ($masterIsAlive) {
+            if ($command === 'start' && $this->ppid != $masterPid) {
+                $logMsg="MultiProcess[$masterPid] already running";
+                $this->logger->log($logMsg);
+                exit($logMsg);
             }
         } elseif ($command !== 'start' && $command !== 'restart') {
-            $this->logger->log("MultiProcess[$master_pid] not run");
-            exit();
+            $logMsg="MultiProcess[$masterPid] not run";
+            $this->logger->log($logMsg);
+            exit($logMsg);
         }
     }
 }
