@@ -14,6 +14,10 @@
 * The implementation of the script automatically pulls up after the exit, preventing the consumption queue from working, affecting the business
 * In fact, the supervisor can easily do something, this is just another implementation of PHP, no need to change the technology stack
 
+## Flow
+![流程图](flow.png)
+
+
 ## Installation
 * git clone https://github.com/kcloze/multiprocess.git
 * composer install
@@ -44,20 +48,58 @@
 
 ### 1.start
 * chmod -R u+r log/
-* php run.php start >> log/worker.log 2>&1
-### 2.reload
-* php run.php reload >> log/worker.log 2>&1
-### 3.stop
-* php run.php stop
+* php multiprocess.php start >> log/worker.log 2>&1
+### 2.stop
+* php multiprocess.php stop
+### 3.exit
+* php multiprocess.php exit
 ### 4.restart
-* php run.php restart >> log/worker.log 2>&1
+* php multiprocess.php restart >> log/worker.log 2>&1
 ### 5.monitor
 * ps -ef|grep 'multi-process'
 
+### Command
+```
+NAME
+      php multiprocess - manage multiprocess
+
+SYNOPSIS
+      php multiprocess command [options]
+          Manage multiprocess daemons.
 
 
+WORKFLOWS
+
+
+      help [command]
+      Show this help, or workflow help for command.
+
+
+      restart
+      Stop, then start multiprocess master and workers.
+
+      start
+      Start multiprocess master and workers.
+
+      stop
+      Wait all running workers smooth exit, please check multiprocess status for a while.
+
+      exit
+      Kill all running workers and master PIDs.
+
+```
+
+
+
+## Monitor
 
 ![monitor img](monitor.png)
+
+## Change log
+
+#### 2017-11-30
+* Refactor mercilessly v2 version 
+* Add exit param，waiting for the child processes run over
 
 
 ## Thanks
