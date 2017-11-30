@@ -1,6 +1,6 @@
-# swoole-jobs
+# multiprocess
 
-* 基于swoole的job调度组件
+* 基于swoole的多进程管理组件，可以让普通PHP脚本常驻运行[停止之后马上拉起]
 
 ## 1. 使用场景
 

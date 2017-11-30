@@ -7,7 +7,7 @@
  * with this source code in the file LICENSE.
  */
 
-namespace Kcloze\Jobs;
+namespace Kcloze\MultiProcess;
 
 class Config
 {

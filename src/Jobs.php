@@ -7,11 +7,11 @@
  * with this source code in the file LICENSE.
  */
 
-namespace Kcloze\Jobs;
+namespace Kcloze\MultiProcess;
 
-use Kcloze\Jobs\Action\SwooleJobsAction;
-use Kcloze\Jobs\Action\YiiAction;
-use Kcloze\Jobs\Queue\BaseTopicQueue;
+use Kcloze\MultiProcess\Action\SwooleJobsAction;
+use Kcloze\MultiProcess\Action\YiiAction;
+use Kcloze\MultiProcess\Queue\BaseTopicQueue;
 
 class Jobs
 {

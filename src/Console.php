@@ -7,9 +7,9 @@
  * with this source code in the file LICENSE.
  */
 
-namespace Kcloze\Jobs;
+namespace Kcloze\MultiProcess;
 
-use Kcloze\Jobs\Queue\Queue;
+use Kcloze\MultiProcess\Queue\Queue;
 
 class Console
 {
