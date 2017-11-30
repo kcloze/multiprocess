@@ -1,4 +1,4 @@
-# multiprocess [[readme in english]](README.en.md)；
+# multiprocess [[readme in english]](README.en.md)
 * 基于swoole的脚本管理，用于多进程和守护进程管理；
 * 可轻松让普通PHP脚本变守护进程和多进程执行；
 * 进程个数可配置，可以根据配置一次性执行多条命令；
