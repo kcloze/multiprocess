@@ -5,20 +5,23 @@
 * 子进程异常退出时,主进程收到信号，自动拉起重新执行；
 * 支持子进程平滑退出，防止重启服务对业务造成影响；
 
-
 ## 1. 场景
 
 * PHP需要跑一个或多个cli脚本消费队列（常驻）
 * 实现脚本退出后自动拉起，防止消费队列不工作，影响业务
 * 其实supervisor可以轻松做个事情，这个只是PHP的另一种实现，不需要换技术栈
 
-## 2. 安装
+## 2. 流程图
+![流程图](flow.png)
+
+
+## 3. 安装
 * git clone https://github.com/kcloze/multiprocess.git
 * composer install
 * 根据自己业务配置,修改config.php
 
 
-## 3. 配置实例
+## 4. 配置实例
 * 一次性执行多个命令
 ```
     'logPath'   => __DIR__ . '/log',
@@ -38,21 +41,21 @@
     ],
 
 ```
-## 4. 运行
+## 5. 运行
 
-### 4.1 启动
+### 5.1 启动
 * chmod -R u+r log/
 * php multiprocess.php start >> log/system.log 2>&1
-### 4.2 平滑停止服务，根据子进程执行时间等待所有服务停止
+### 5.2 平滑停止服务，根据子进程执行时间等待所有服务停止
 * php multiprocess.php stop
-### 4.3 强制停止服务[慎用]
+### 5.3 强制停止服务[慎用]
 * php multiprocess.php exit
-### 4.4 强制重启
+### 5.4 强制重启
 * php multiprocess.php restart >> log/system.log 2>&1
-### 4.5 监控
+### 5.5 监控
 * ps -ef|grep 'multi-process'
 
-### 4.6 启动参数说明
+### 5.6 启动参数说明
 ```
 NAME
       php multiprocess - manage multiprocess
@@ -85,22 +88,22 @@ WORKFLOWS
 
 
 
-## 5. 系统状态
+## 6. 系统状态
 
 ![监控图](monitor.png)
 
-## 6. change log
+## 7. change log
 
 #### 2017-11-30
 * 彻底重构v2版本
 * 增加exit启动参数，默认stop等待子进程平滑退出
 
 
-## 7. 感谢
+## 8. 感谢
 
 * [swoole](http://www.swoole.com/)
 
-## 8. 联系
+## 9. 联系
 
 qq群：141059677
 
