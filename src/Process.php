@@ -11,8 +11,7 @@ namespace Kcloze\MultiProcess;
 
 class Process
 {
-    public $processName    = ':swooleProcessTopicQueueJob'; // 进程重命名, 方便 shell 脚本管理
-    public $jobs           = null;
+    public $processName    = ':swooleMultiProcess'; // 进程重命名, 方便 shell 脚本管理
     private $workers;
     private $ppid;
     private $workNum  = 5;
@@ -20,11 +19,10 @@ class Process
     private $pidFile  = '';
     private $status   ='running'; //主进程状态
 
-    public function __construct(Jobs $jobs)
+    public function __construct()
     {
         $this->config  =  Config::getConfig();
         $this->logger  = Logs::getLogger($this->config['logPath'] ?? []);
-        $this->jobs    = $jobs;
 
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             $this->pidFile=$this->config['pidPath'] . '/master.pid';
@@ -34,49 +32,67 @@ class Process
         if (isset($this->config['processName']) && !empty($this->config['processName'])) {
             $this->processName = $this->config['processName'];
         }
-        if (isset($this->config['workNum']) && $this->config['workNum'] > 0) {
-            $this->workNum = $this->config['workNum'];
-        }
+
         /*
          * master.pid 文件记录 master 进程 pid, 方便之后进程管理
          * 请管理好此文件位置, 使用 systemd 管理进程时会用到此文件
          */
         if (file_exists($this->pidFile)) {
-            echo '已有进程运行中,请先结束或重启' . PHP_EOL;
+            echo '已有进程运行中,请先结束或重启';
             die();
         }
         \Swoole\Process::daemon();
         $this->ppid = getmypid();
-        file_put_contents($this->pidFile, $this->ppid . PHP_EOL);
-        $this->setProcessName('job master ' . $this->ppid . $this->processName);
+        file_put_contents($this->pidFile, $this->ppid);
+        $this->setProcessName('multiprocess master ' . $this->ppid . $this->processName);
     }
 
     public function start()
     {
-        //开启多个进程消费队列
-        for ($i = 0; $i < $this->workNum; $i++) {
-            $this->reserveQueue($i);
+        if (!isset($this->config['exec'])) {
+            die('config exec must be not null!');
         }
+        $this->logger->log('process start pid: ' . $this->ppid, 'info', Logs::LOG_SAVE_FILE_WORKER);
+
+        foreach ($this->config['exec'] as $key => $value) {
+            if (!isset($value['bin']) || !isset($value['binArgs'])) {
+                $this->logger->log('config bin/binArgs must be not null!', 'error', Logs::LOG_SAVE_FILE_WORKER);
+            }
+
+            $workOne['bin']    =$value['bin'];
+            //子进程带上通用识别文字，方便ps查询进程
+            $workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
+            //开启多个子进程
+            for ($i = 0; $i < $value['workNum']; $i++) {
+                $this->reserveExec($i, $workOne);
+            }
+        }
+
         $this->registSignal($this->workers);
     }
 
-    //独立进程消费队列
-    public function reserveQueue($workNum)
+    /**
+     * 启动子进程，跑业务代码
+     *
+     * @param [type] $num
+     * @param [type] $workOne
+     * @param mixed  $workNum
+     */
+    public function reserveExec($workNum, $workOne)
     {
-        $self           = $this;
-        $reserveProcess = new \Swoole\Process(function () use ($self, $workNum) {
-            //设置进程名字
-            $this->setProcessName('job ' . $workNum . $self->processName);
+        $reserveProcess = new \Swoole\Process(function ($worker) use ($workNum, $workOne) {
             try {
-                $self->jobs->run();
-            } catch (\Exception $e) {
-                $this->logger->log($e->getMessage(), 'error', Logs::LOG_SAVE_FILE_WORKER);
+                $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']), 'info', Logs::LOG_SAVE_FILE_WORKER);
+                //执行一个外部程序
+                $worker->exec($workOne['bin'], $workOne['binArgs']);
+            } catch (Exception $e) {
+                $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage(), 'error', Logs::LOG_SAVE_FILE_WORKER);
             }
-            $this->logger->log('worker id: ' . $workNum . ' is done!!!' . PHP_EOL, 'info', Logs::LOG_SAVE_FILE_WORKER);
+            $this->logger->log('worker id: ' . $workNum . ' is done!!!', 'info', Logs::LOG_SAVE_FILE_WORKER);
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
-        $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start...' . PHP_EOL, 'info', Logs::LOG_SAVE_FILE_WORKER);
+        $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start...', 'info', Logs::LOG_SAVE_FILE_WORKER);
     }
 
     //注册信号
@@ -97,10 +113,10 @@ class Process
                     //主进程状态为running才需要拉起子进程
                     if ($this->status == 'running') {
                         $new_pid           = $child_process->start();
-                        $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $new_pid . PHP_EOL, 'info', Logs::LOG_SAVE_FILE_WORKER);
+                        $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $new_pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $workers[$new_pid] = $child_process;
                     }
-                    $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid . PHP_EOL, 'info', Logs::LOG_SAVE_FILE_WORKER);
+                    $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                     unset($workers[$pid]);
                     $this->logger->log('Worker count: ' . count($workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
                     //如果$workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
@@ -140,7 +156,7 @@ class Process
     private function exitMaster()
     {
         @unlink($this->pidFile);
-        $this->logger->log('Time: ' . microtime(true) . '主进程' . $this->ppid . '退出' . PHP_EOL, 'info', Logs::LOG_SAVE_FILE_WORKER);
+        $this->logger->log('Time: ' . microtime(true) . '主进程' . $this->ppid . '退出', 'info', Logs::LOG_SAVE_FILE_WORKER);
         sleep(1);
         exit();
     }

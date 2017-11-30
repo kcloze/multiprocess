@@ -9,8 +9,6 @@
 
 namespace Kcloze\MultiProcess;
 
-use Kcloze\MultiProcess\Queue\Queue;
-
 class Console
 {
     public $logger    = null;
@@ -30,10 +28,8 @@ class Console
 
     public function start()
     {
-        $queue   =  Queue::getQueue();
-        $jobs    = new Jobs($queue);
         //启动
-        $process = new Process($jobs);
+        $process = new Process();
         $process->start();
     }
 
