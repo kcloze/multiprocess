@@ -36,11 +36,17 @@ class Process
         /*
          * master.pid 文件记录 master 进程 pid, 方便之后进程管理
          * 请管理好此文件位置, 使用 systemd 管理进程时会用到此文件
+         * 判断文件是否存在，并判断进程是否在运行
          */
         if (file_exists($this->pidFile)) {
-            echo '已有进程运行中,请先结束或重启';
-            die();
+            $pid    =file_get_contents($this->pidFile);
+            $running=@posix_kill($pid, 0);
+            if (posix_get_last_error() == 1) {
+                $running=true;
+            }
+            $running && die('已有进程运行中,请先结束或重启' . PHP_EOL);
         }
+
         \Swoole\Process::daemon();
         $this->ppid = getmypid();
         file_put_contents($this->pidFile, $this->ppid);
