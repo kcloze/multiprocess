@@ -121,11 +121,11 @@ class Console
     {
         $msg=<<<'EOF'
 NAME
-      php swoole-jobs - manage swoole-jobs
+      php multiprocess - manage multiprocess
 
 SYNOPSIS
-      php swoole-jobs command [options]
-          Manage swoole-jobs daemons.
+      php multiprocess command [options]
+          Manage multiprocess daemons.
 
 
 WORKFLOWS
@@ -136,13 +136,13 @@ WORKFLOWS
 
 
       restart
-      Stop, then start swoole-jobs master and workers.
+      Stop, then start multiprocess master and workers.
 
       start
-      Start swoole-jobs master and workers.
+      Start multiprocess master and workers.
 
       stop
-      Wait all running workers smooth exit, please check swoole-jobs status for a while.
+      Wait all running workers smooth exit, please check multiprocess status for a while.
 
       exit
       Kill all running workers and master PIDs.

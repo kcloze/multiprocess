@@ -1,13 +1,16 @@
 {
-    "name": "kcloze/swoole-jobs",
-    "description": "基于swoole的job调度组件",
-    "keywords": ["swoole", "job", "scheduler", "调度"],
-    "homepage": "https://github.com/kcloze/swoole-jobs",
+    "name": "kcloze/multiprocess",
+    "description": "基于swoole的cli多进程管理",
+    "keywords": [
+        "swoole",
+        "多进程",
+        "multi-process"
+    ],
+    "homepage": "https://github.com/kcloze/multiprocess",
     "license": "MIT",
     "require": {
         "php": ">=7.0",
-        "ext-swoole": ">=1.8.9",
-        "ext-redis": "*"
+        "ext-swoole": ">=1.8.9"
     },
     "authors": [
         {
@@ -17,11 +20,10 @@
     ],
     "autoload": {
         "psr-4": {
-            "Kcloze\\Jobs\\": "src"
+            "Kcloze\\MultiProcess\\": "src"
         }
     },
     "bin": [
-        "swoole-jobs"
+        "multiProcess"
     ]
-    
 }

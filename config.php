@@ -11,8 +11,7 @@ return $config = [
     //log目录
     'logPath'      => __DIR__ . '/log',
     'pidPath'      => __DIR__ . '/log',
-    'usleep'       => 10000, //每次topic消费完之后停留毫秒数，线上环境不能过大
-    'processName'  => ':swooleTopicQueue', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
+    'processName'  => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
     //exec任务相关
     'exec'      => [
         [
