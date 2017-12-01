@@ -1,0 +1,29 @@
+{
+    "name": "kcloze/multiprocess",
+    "description": "基于swoole的cli多进程管理",
+    "keywords": [
+        "swoole",
+        "多进程",
+        "multi-process"
+    ],
+    "homepage": "https://github.com/kcloze/multiprocess",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.0",
+        "ext-swoole": ">=1.8.9"
+    },
+    "authors": [
+        {
+            "name": "kcloze",
+            "email": "pei.greet@qq.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Kcloze\\MultiProcess\\": "src"
+        }
+    },
+    "bin": [
+        "multiProcess"
+    ]
+}
