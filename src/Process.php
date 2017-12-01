@@ -44,6 +44,7 @@ class Process
                 die('已有进程运行中,请先结束或重启' . PHP_EOL);
             }
         }
+
         \Swoole\Process::daemon();
         $this->ppid = getmypid();
         file_put_contents($this->pidFile, $this->ppid);
