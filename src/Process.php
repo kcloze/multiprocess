@@ -36,10 +36,13 @@ class Process
         /*
          * master.pid 文件记录 master 进程 pid, 方便之后进程管理
          * 请管理好此文件位置, 使用 systemd 管理进程时会用到此文件
+         * 判断文件是否存在，并判断进程是否在运行
          */
         if (file_exists($this->pidFile)) {
-            echo '已有进程运行中,请先结束或重启';
-            die();
+            $pid    =file_get_contents($this->pidFile);
+            if ($pid && \Swoole\Process::kill($pid, 0)) {
+                die('已有进程运行中,请先结束或重启' . PHP_EOL);
+            }
         }
         \Swoole\Process::daemon();
         $this->ppid = getmypid();
@@ -81,6 +84,7 @@ class Process
     public function reserveExec($workNum, $workOne)
     {
         $reserveProcess = new \Swoole\Process(function ($worker) use ($workNum, $workOne) {
+            $this->checkMpid($worker);
             try {
                 $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']), 'info', Logs::LOG_SAVE_FILE_WORKER);
                 //执行一个外部程序
@@ -89,6 +93,7 @@ class Process
                 $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage(), 'error', Logs::LOG_SAVE_FILE_WORKER);
             }
             $this->logger->log('worker id: ' . $workNum . ' is done!!!', 'info', Logs::LOG_SAVE_FILE_WORKER);
+            $worker->exit(0);
         });
         $pid                 = $reserveProcess->start();
         $this->workers[$pid] = $reserveProcess;
@@ -132,12 +137,6 @@ class Process
     }
 
     //平滑等待子进程退出之后，再退出主进程
-    private function waitWorkers()
-    {
-        $this->status   ='wait';
-    }
-
-    //强制杀死子进程并退出主进程
     private function killWorkersAndExitMaster()
     {
         //修改主进程状态为stop
@@ -154,6 +153,13 @@ class Process
             $this->logger->log('Worker count: ' . count($this->workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
         }
         $this->exitMaster();
+    }
+
+    //强制杀死子进程并退出主进程
+    private function waitWorkers()
+    {
+        //修改主进程状态为wait
+        $this->status   ='wait';
     }
 
     //退出主进程
@@ -175,6 +181,15 @@ class Process
         //mac os不支持进程重命名
         if (function_exists('swoole_set_process_name') && PHP_OS != 'Darwin') {
             swoole_set_process_name($name);
+        }
+    }
+
+    //主进程如果不存在了，子进程退出
+    private function checkMpid(&$worker)
+    {
+        if (!\Swoole\Process::kill($this->ppid, 0)) {
+            $worker->exit();
+            $this->logger->log("Master process exited, I [{$worker['pid']}] also quit");
         }
     }
 }

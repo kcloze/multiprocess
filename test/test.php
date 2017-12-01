@@ -11,7 +11,7 @@ ini_set('date.timezone', 'Asia/Shanghai');
 
 echo 'test1 time: ' . date('Y-m-d H:i:s');
 
-sleep(100);
+sleep(15);
 
 $i= mt_rand(1, 5);
 var_dump($i);
