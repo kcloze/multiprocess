@@ -40,7 +40,7 @@ class Process
          */
         if (file_exists($this->pidFile)) {
             $pid    =file_get_contents($this->pidFile);
-            if ($pid && \Swoole\Process::kill($pid, 0)) {
+            if ($pid && @\Swoole\Process::kill($pid, 0)) {
                 die('已有进程运行中,请先结束或重启' . PHP_EOL);
             }
         }
