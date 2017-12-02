@@ -55,17 +55,11 @@ class Console
             if (empty($ppid)) {
                 exit('service is not running' . PHP_EOL);
             }
-            if (function_exists('posix_kill')) {
-                //macOS 只接受SIGUSR1信号
-                //$signal=(PHP_OS == 'Darwin') ? SIGKILL : $signal;
-                if (@\Swoole\Process::kill($ppid, $signal)) {
-                    $this->logger->log('[pid: ' . $ppid . '] has been stopped success');
-                } else {
-                    $this->logger->log('[pid: ' . $ppid . '] has been stopped fail');
-                }
-            } else {
-                system('kill -' . $signal . $ppid);
+            //给主进程发送信号
+            if (@\Swoole\Process::kill($ppid, $signal)) {
                 $this->logger->log('[pid: ' . $ppid . '] has been stopped success');
+            } else {
+                $this->logger->log('[pid: ' . $ppid . '] has been stopped fail');
             }
         } else {
             exit('service is not running' . PHP_EOL);
