@@ -1,4 +1,7 @@
-# multiprocess [[readme in english]](README.en.md)
+# multiprocess
+
+
+* [[readme in english]](README.en.md)
 * 基于swoole的脚本管理，用于多进程和守护进程管理；
 * 可轻松让普通脚本变守护进程和多进程执行；
 * 进程个数可配置，可以根据配置一次性执行多条命令；
@@ -92,25 +95,50 @@ WORKFLOWS
       Kill all running workers and master PIDs.
 
 ```
+## 6. 服务管理
+### 启动和关闭服务,有两种方式:
+
+#### 6.1 php脚本(主进程挂了之后,需要手动启动)
+```
+./multiprocess.php start|stop|exit|restart
+
+```
 
 
 
-## 6. 系统状态
+#### 6.2 使用systemd管理(故障重启、开机自启动)
+[更多systemd介绍](https://www.swoole.com/wiki/page/699.html)
+
+```
+1. 根据自己项目路径,修改 systemd/multiprocess.service
+2. sudo cp -f systemd/multiprocess.service /etc/systemd/system/
+3. sudo systemctl --system daemon-reload
+4. 服务管理
+#启动服务
+sudo systemctl start multiprocess.service
+#reload服务
+sudo systemctl reload multiprocess.service
+#关闭服务
+sudo systemctl stop multiprocess.service
+```
+
+
+## 7. 系统状态
 
 ![监控图](monitor.png)
 
-## 7. change log
+## 8. change log
 
 #### 2017-11-30
 * 彻底重构v2版本
 * 增加exit启动参数，默认stop等待子进程平滑退出
 
 
-## 8. 感谢
+## 9. 感谢
 
 * [swoole](http://www.swoole.com/)
 
-## 9. 联系
+## 10. 联系
 
 qq群：141059677
 
