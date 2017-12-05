@@ -142,8 +142,9 @@ class Process
     {
         //修改主进程状态为stop
         $this->status   ='stop';
-        foreach ($this->workers as $pid => $worker) {
-            //强制杀workers子进程
+        if ($this->workers) {
+            foreach ($this->workers as $pid => $worker) {
+                //强制杀workers子进程
             if (\Swoole\Process::kill($pid) == true) {
                 unset($this->workers[$pid]);
                 $this->logger->log('子进程[' . $pid . ']收到强制退出信号,退出成功', 'info', Logs::LOG_SAVE_FILE_WORKER);
@@ -151,7 +152,8 @@ class Process
                 $this->logger->log('子进程[' . $pid . ']收到强制退出信号,但退出失败', 'info', Logs::LOG_SAVE_FILE_WORKER);
             }
 
-            $this->logger->log('Worker count: ' . count($this->workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
+                $this->logger->log('Worker count: ' . count($this->workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
+            }
         }
         $this->exitMaster();
     }
