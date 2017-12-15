@@ -11,6 +11,10 @@ namespace Kcloze\MultiProcess;
 
 class Process
 {
+    const STATUS_RUNNING            ='runnning'; //主进程running状态
+    const STATUS_WAIT               ='wait'; //主进程wait状态
+    const STATUS_STOP               ='stop'; //主进程stop状态
+
     public $processName    = ':swooleMultiProcess'; // 进程重命名, 方便 shell 脚本管理
     private $workers;
     private $ppid;
@@ -27,7 +31,7 @@ class Process
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             $this->pidFile=$this->config['pidPath'] . '/master.pid';
         } else {
-            $this->pidFile=APP_PATH . '/master.pid';
+            die('config pidPath must be set!');
         }
         if (isset($this->config['processName']) && !empty($this->config['processName'])) {
             $this->processName = $this->config['processName'];
@@ -72,7 +76,7 @@ class Process
             }
         }
 
-        $this->registSignal($this->workers);
+        $this->registSignal();
     }
 
     /**
@@ -90,8 +94,10 @@ class Process
                 $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']), 'info', Logs::LOG_SAVE_FILE_WORKER);
                 //执行一个外部程序
                 $worker->exec($workOne['bin'], $workOne['binArgs']);
-            } catch (Exception $e) {
-                $this->logger->log('error: ' . $workOne['binArgs'][0] . $e->getMessage(), 'error', Logs::LOG_SAVE_FILE_WORKER);
+            } catch (\Throwable $e) {
+                Utils::catchError($this->logger, $e);
+            } catch (\Exception $e) {
+                Utils::catchError($this->logger, $e);
             }
             $this->logger->log('worker id: ' . $workNum . ' is done!!!', 'info', Logs::LOG_SAVE_FILE_WORKER);
             $worker->exit(0);
@@ -102,7 +108,7 @@ class Process
     }
 
     //注册信号
-    public function registSignal(&$workers)
+    public function registSignal()
     {
         \Swoole\Process::signal(SIGTERM, function ($signo) {
             $this->killWorkersAndExitMaster();
@@ -110,23 +116,23 @@ class Process
         \Swoole\Process::signal(SIGUSR1, function ($signo) {
             $this->waitWorkers();
         });
-        \Swoole\Process::signal(SIGCHLD, function ($signo) use (&$workers) {
+        \Swoole\Process::signal(SIGCHLD, function ($signo) {
             while (true) {
                 $ret = \Swoole\Process::wait(false);
                 if ($ret) {
                     $pid           = $ret['pid'];
-                    $child_process = $workers[$pid];
+                    $child_process = $this->workers[$pid];
                     //主进程状态为running才需要拉起子进程
                     if ($this->status == 'running') {
                         $new_pid           = $child_process->start();
                         $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $new_pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
-                        $workers[$new_pid] = $child_process;
+                        $this->workers[$new_pid] = $child_process;
                     }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
-                    unset($workers[$pid]);
-                    $this->logger->log('Worker count: ' . count($workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
-                    //如果$workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
-                    if (empty($workers) && $this->status == 'wait') {
+                    unset($this->workers[$pid]);
+                    $this->logger->log('Worker count: ' . count($this->workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
+                    //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
+                    if (empty($this->workers) && $this->status == 'wait') {
                         $this->logger->log('主进程收到所有信号子进程的退出信号，子进程安全退出完成', 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $this->exitMaster();
                     }
@@ -194,5 +200,21 @@ class Process
             $worker->exit();
             $this->logger->log("Master process exited, I [{$worker['pid']}] also quit");
         }
+    }
+
+    private function saveMasterData($data=[])
+    {
+        file_put_contents($this->pidFile, $data['pid']);
+        file_put_contents($this->pidInfoFile, serialize($data));
+    }
+
+    private function getMasterData($key='')
+    {
+        $data=unserialize(file_get_contents($this->pidInfoFile));
+        if ($key) {
+            return $data[$key] ?? null;
+        }
+
+        return $data;
     }
 }

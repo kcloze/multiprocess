@@ -31,26 +31,53 @@ class Logs
 
     private static $instance=null;
 
-    public function __construct($logPath='')
+    public function __construct($logPath)
     {
-        $this->logPath = !empty($logPath) ? $logPath : APP_PATH . '/log';
+        if (empty($logPath)) {
+            die('config logPath must be set!' . PHP_EOL);
+        }
+        Utils::mkdir($logPath);
+        $this->logPath = $logPath;
     }
 
+    /**
+     * 获取日志实例.
+     *
+     * @$logPath
+     *
+     * @param mixed $logPath
+     */
     public static function getLogger($logPath='')
     {
-        if (isset(self::$instance) && self::$instance !== null) {
-            return self::$instance;
-        }
+        // if (isset(self::$instance) && self::$instance !== null) {
+        //     return self::$instance;
+        // }
         self::$instance=new self($logPath);
 
         return self::$instance;
     }
 
+    /**
+     * 格式化日志信息.
+     *
+     * @param mixed $message
+     * @param mixed $level
+     * @param mixed $category
+     * @param mixed $time
+     */
     public function formatLogMessage($message, $level, $category, $time)
     {
         return @date('Y/m/d H:i:s', $time) . " [$level] [$category] $message\n";
     }
 
+    /**
+     * 日志分类处理.
+     *
+     * @param mixed $message
+     * @param mixed $level
+     * @param mixed $category
+     * @param mixed $flush
+     */
     public function log($message, $level = 'info', $category = self::LOG_SAVE_FILE_APP, $flush = true)
     {
         $this->logs[$category][] = [$message, $level, $category, microtime(true)];
@@ -60,6 +87,9 @@ class Logs
         }
     }
 
+    /**
+     * 日志分类处理.
+     */
     public function processLogs()
     {
         $logsAll=[];
@@ -116,13 +146,10 @@ class Logs
 
             if (@filesize($fileName) > $this->maxFileSize * 1024 * 1024) {
                 $this->rotateFiles($fileName);
-                @flock($fp, LOCK_UN);
-                @fclose($fp);
-            } else {
-                @fwrite($fp, $value);
-                @flock($fp, LOCK_UN);
-                @fclose($fp);
             }
+            @fwrite($fp, $value);
+            @flock($fp, LOCK_UN);
+            @fclose($fp);
         }
     }
 
