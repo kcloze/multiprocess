@@ -20,7 +20,8 @@ class Process
     private $ppid;
     private $workNum  = 5;
     private $config   = [];
-    private $pidFile  = '';
+    private $pidFile  = 'master.pid';
+    private $pidInfoFile  = 'master.info';
     private $status   ='running'; //主进程状态
 
     public function __construct()
@@ -29,7 +30,10 @@ class Process
         $this->logger  = Logs::getLogger($this->config['logPath'] ?? []);
 
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
-            $this->pidFile=$this->config['pidPath'] . '/master.pid';
+            Utils::mkdir($this->config['pidPath']);
+            $this->pidFile=$this->config['pidPath'] . '/'. $this->config['pidPath'];
+            $this->pidInfoFile=$this->config['pidPath'] . '/' . $this->pidInfoFile;
+
         } else {
             die('config pidPath must be set!');
         }
@@ -43,7 +47,7 @@ class Process
          * 判断文件是否存在，并判断进程是否在运行
          */
         if (file_exists($this->pidFile)) {
-            $pid    =file_get_contents($this->pidFile);
+            $pid=$this->getMasterData('pid');
             if ($pid && @\Swoole\Process::kill($pid, 0)) {
                 die('已有进程运行中,请先结束或重启' . PHP_EOL);
             }
@@ -51,7 +55,9 @@ class Process
 
         \Swoole\Process::daemon();
         $this->ppid = getmypid();
-        file_put_contents($this->pidFile, $this->ppid);
+        $data['pid']   =$this->ppid;
+        $data['status']=$this->status;
+        $this->saveMasterData($data);
         $this->setProcessName('multiprocess master ' . $this->ppid . $this->processName);
     }
 
@@ -113,6 +119,9 @@ class Process
         \Swoole\Process::signal(SIGTERM, function ($signo) {
             $this->killWorkersAndExitMaster();
         });
+        \Swoole\Process::signal(SIGKILL, function ($signo) {
+            $this->killWorkersAndExitMaster();
+        });
         \Swoole\Process::signal(SIGUSR1, function ($signo) {
             $this->waitWorkers();
         });
@@ -122,6 +131,7 @@ class Process
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $child_process = $this->workers[$pid];
+                    $this->status=$this->getMasterData('status');
                     //主进程状态为running才需要拉起子进程
                     if ($this->status == 'running') {
                         $new_pid           = $child_process->start();
@@ -147,7 +157,7 @@ class Process
     private function killWorkersAndExitMaster()
     {
         //修改主进程状态为stop
-        $this->status   ='stop';
+        $this->status   =self::STATUS_STOP;
         if ($this->workers) {
             foreach ($this->workers as $pid => $worker) {
                 //强制杀workers子进程
@@ -168,13 +178,17 @@ class Process
     private function waitWorkers()
     {
         //修改主进程状态为wait
-        $this->status   ='wait';
+        $data['pid']   =$this->ppid;
+        $data['status']=self::STATUS_WAIT;
+        $this->saveMasterData($data);
+        $this->status = self::STATUS_WAIT;
     }
 
     //退出主进程
     private function exitMaster()
     {
         @unlink($this->pidFile);
+        @unlink($this->pidInfoFile);
         $this->logger->log('Time: ' . microtime(true) . '主进程' . $this->ppid . '退出', 'info', Logs::LOG_SAVE_FILE_WORKER);
         sleep(1);
         exit();

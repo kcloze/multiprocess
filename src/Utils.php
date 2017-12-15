@@ -1,6 +1,6 @@
 <?php
 
-namespace Kcloze\Jobs;
+namespace Kcloze\MultiProcess;
 
 class Utils
 {

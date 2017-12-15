@@ -16,22 +16,22 @@ return $config = [
     'exec'      => [
         [
             'name'      => 'kcloze-test-1',
-            'bin'       => '/usr/bin/php',
+            'bin'       => '/usr/local/bin/php',
             'binArgs'   => [__DIR__ . '/test/test.php', 'oop', '123'],
             'workNum'   => 3,
         ],
         [
             'name'      => 'kcloze-test-2',
-            'bin'       => '/usr/bin/php',
+            'bin'       => '/usr/local/bin/php',
             'binArgs'   => [__DIR__ . '/test/test2.php', 'oop', '456'],
             'workNum'   => 5,
         ],
-        [
-            'name'      => 'kcloze-test-3',
-            'bin'       => '/usr/bin/python',
-            'binArgs'   => [__DIR__ . '/test/test3.py', 'oop', '369'],
-            'workNum'   => 2,
-        ],
+        // [
+        //     'name'      => 'kcloze-test-3',
+        //     'bin'       => '/usr/bin/python',
+        //     'binArgs'   => [__DIR__ . '/test/test3.py', 'oop', '369'],
+        //     'workNum'   => 2,
+        // ],
     ],
 
 ];
