@@ -100,6 +100,8 @@ class Process
 
     public function startByWorkerName($workName)
     {
+        $data[$workName . 'Status']=self::STATUS_START;
+        $this->saveMasterData($data);
         foreach ($this->config['exec'] as $key => $value) {
             if ($value['name'] != $workName) {
                 continue;
@@ -117,6 +119,8 @@ class Process
                 $this->reserveExec($i, $workOne);
             }
         }
+        $data[$workName . 'Status']=self::STATUS_RUNNING;
+        $this->saveMasterData($data);
     }
 
     /**
@@ -144,9 +148,11 @@ class Process
         });
         $pid                                        = $reserveProcess->start();
         $this->workers[$pid]                        = $reserveProcess;
-        $this->workersByNamePids[$workOne['name']][]=$pid;
+        $this->workersByNamePids[$workOne['name']]++;
         $this->workersByPidName[$pid]               =$workOne['name'];
-        var_dump($this->workersByNamePids, '+++++', $this->workersByPidName);
+
+        $data[$workOne['name'] . 'Status']=self::STATUS_RUNNING;
+        $this->saveMasterData($data);
         $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start...', 'info', Logs::LOG_SAVE_FILE_WORKER);
     }
 
@@ -169,8 +175,6 @@ class Process
                     $pid           = $ret['pid'];
                     $childProcess = $this->workers[$pid];
                     $workName=$this->workersByPidName[$pid];
-                    var_dump($workName);
-                    var_dump($this->workersByNamePids, '+++++', $this->workersByPidName);
                     $this->status=$this->getMasterData('status');
                     //根据wokerName，获取其运行状态
                     $workNameStatus=$this->getMasterData($workName . 'Status');
@@ -185,20 +189,19 @@ class Process
                         }
                         $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $newPid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $this->workers[$newPid] = $childProcess;
-                        $this->workersByNamePids[$workName][]=$newPid;
+                        $this->workersByNamePids[$workName]++;
                         $this->workersByPidName[$newPid]        =$workName;
                     }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                     unset($this->workers[$pid], $this->workersByNamePids[$workName][$pid], $this->workersByPidName[$pid]);
-
+                    $this->workersByNamePids[$workName]--;
                     //根据配置workername进程数跟实际wokers是否相等,不相等说明有异常，需要重启recover所有子进程
-                    if ($this->status == Process::STATUS_RUNNING && $this->configWorkersByNameNum[$workName] != count($this->workersByNamePids[$workName])) {
-                        $data['status']=Process::STATUS_RUNNING;
+                    if ($workNameStatus == Process::STATUS_RUNNING && $this->configWorkersByNameNum[$workName] != $this->workersByNamePids[$workName]) {
                         $data[$workName . 'Status']=Process::STATUS_RECOVER;
                         $this->saveMasterData($data);
-                        $this->logger->log('Worker config nums: ' . $this->configWorkersByNameNum[$workName] . '!=' . count($this->workers), 'error', Logs::LOG_SAVE_FILE_WORKER);
+                        $this->logger->log('Worker config nums: ' . $this->configWorkersByNameNum[$workName] . '!=' . $this->workersByNamePids[$workName], 'error', Logs::LOG_SAVE_FILE_WORKER);
                     }
-                    $this->logger->log('Worker count: ' . count($this->workers) . '==' . $this->configWorkersByNameNum[$workName], 'info', Logs::LOG_SAVE_FILE_WORKER);
+                    $this->logger->log('Worker count: ' . count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName] . '==' . $this->workersByNamePids[$workName], 'info', Logs::LOG_SAVE_FILE_WORKER);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
                     if (empty($this->workers) && $this->status == self::STATUS_WAIT) {
                         $this->logger->log('主进程收到所有信号子进程的退出信号，子进程安全退出完成', 'info', Logs::LOG_SAVE_FILE_WORKER);
@@ -215,17 +218,18 @@ class Process
     {
         $this->timer=\Swoole\Timer::tick($this->checkTickTimer, function ($timerId) {
             foreach ($this->configWorkersByNameNum as $key => $value) {
-                $workName=$value;
+                $workName=$key;
                 $this->status  =$this->getMasterData('status');
                 $workNameStatus=$this->getMasterData($workName . 'Status');
 
-                if (empty($this->workersByNamePids[$workName]) && $workNameStatus == Process::STATUS_RECOVER) {
-                    $data[$workName . 'status']=Process::STATUS_START;
+                if ($this->workersByNamePids[$workName] <= 0 && $workNameStatus == Process::STATUS_RECOVER) {
+                    $data[$workName . 'Status']=Process::STATUS_START;
                     $this->saveMasterData($data);
-                    $this->start($workName);
+                    $this->startByWorkerName($workName);
                     $this->logger->log('主进程 recover 子进程：' . $workName, 'info', Logs::LOG_SAVE_FILE_WORKER);
                 }
                 $this->logger->log('主进程状态：' . $this->status, 'info', Logs::LOG_SAVE_FILE_WORKER);
+                $this->logger->log('[' . $workName . ']子进程状态：' . $workNameStatus . ' 数量：' . $this->workersByNamePids[$workName], 'info', Logs::LOG_SAVE_FILE_WORKER);
             }
         });
     }
@@ -264,7 +268,7 @@ class Process
     private function exitMaster()
     {
         @unlink($this->pidFile);
-        @unlink($this->pidInfoFile);
+        $this->clearMasterData();
         $this->logger->log('Time: ' . microtime(true) . '主进程' . $this->ppid . '退出', 'info', Logs::LOG_SAVE_FILE_WORKER);
         sleep(1);
         exit();
@@ -307,6 +311,15 @@ class Process
         foreach ((array) $data as $key => $value) {
             $key && $this->redis->set($key, $value);
         }
+    }
+
+    private function clearMasterData()
+    {
+        $data=$this->configWorkersByNameNum;
+        foreach ((array) $data as $key => $value) {
+            $value && $this->redis->del($key . 'Status');
+        }
+        $this->redis->del('status');
     }
 
     private function getMasterData($key)
