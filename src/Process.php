@@ -11,18 +11,22 @@ namespace Kcloze\MultiProcess;
 
 class Process
 {
-    const STATUS_RUNNING            ='runnning'; //主进程running状态
+    const STATUS_START              ='start'; //主进程启动中状态
+    const STATUS_RUNNING            ='runnning'; //主进程正常running状态
     const STATUS_WAIT               ='wait'; //主进程wait状态
     const STATUS_STOP               ='stop'; //主进程stop状态
+    const STATUS_RECOVER            ='recover'; //主进程recover状态
 
     public $processName    = ':swooleMultiProcess'; // 进程重命名, 方便 shell 脚本管理
     private $workers;
     private $ppid;
-    private $workNum  = 5;
-    private $config   = [];
-    private $pidFile  = 'master.pid';
-    private $pidInfoFile  = 'master.info';
-    private $status   ='running'; //主进程状态
+    private $configWorkersNum;
+    private $checkTickTimer      = 5000; //检查服务是否正常定时器,单位ms
+    private $config              = [];
+    private $pidFile             = 'master.pid';
+    private $pidInfoFile         = 'master.info';
+    private $status              =''; //主进程状态
+    private $timer               =''; //定时器id
 
     public function __construct()
     {
@@ -31,9 +35,8 @@ class Process
 
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             Utils::mkdir($this->config['pidPath']);
-            $this->pidFile=$this->config['pidPath'] . '/'. $this->config['pidPath'];
+            $this->pidFile    =$this->config['pidPath'] . '/' . $this->pidFile;
             $this->pidInfoFile=$this->config['pidPath'] . '/' . $this->pidInfoFile;
-
         } else {
             die('config pidPath must be set!');
         }
@@ -54,20 +57,21 @@ class Process
         }
 
         \Swoole\Process::daemon();
-        $this->ppid = getmypid();
-        $data['pid']   =$this->ppid;
-        $data['status']=$this->status;
-        $this->saveMasterData($data);
+        $this->ppid    = getmypid();
         $this->setProcessName('multiprocess master ' . $this->ppid . $this->processName);
     }
 
     public function start()
     {
+        $data['pid']   =$this->ppid;
+        $data['status']=self::STATUS_START;
+        $this->saveMasterData($data);
         if (!isset($this->config['exec'])) {
             die('config exec must be not null!');
         }
         $this->logger->log('process start pid: ' . $this->ppid, 'info', Logs::LOG_SAVE_FILE_WORKER);
 
+        $this->configWorkersNum=0;
         foreach ($this->config['exec'] as $key => $value) {
             if (!isset($value['bin']) || !isset($value['binArgs'])) {
                 $this->logger->log('config bin/binArgs must be not null!', 'error', Logs::LOG_SAVE_FILE_WORKER);
@@ -80,9 +84,16 @@ class Process
             for ($i = 0; $i < $value['workNum']; $i++) {
                 $this->reserveExec($i, $workOne);
             }
+            $this->configWorkersNum += $value['workNum'];
         }
 
-        $this->registSignal();
+        if (empty($this->timer)) {
+            $this->registSignal();
+            $this->registTimer();
+        }//启动成功，修改状态
+        $data['pid']   =$this->ppid;
+        $data['status']=self::STATUS_RUNNING;
+        $this->saveMasterData($data);
     }
 
     /**
@@ -133,16 +144,29 @@ class Process
                     $child_process = $this->workers[$pid];
                     $this->status=$this->getMasterData('status');
                     //主进程状态为running才需要拉起子进程
-                    if ($this->status == 'running') {
-                        $new_pid           = $child_process->start();
+                    if ($this->status == Process::STATUS_RUNNING || $this->status == Process::STATUS_START) {
+                        try {
+                            $new_pid  = $child_process->start();
+                        } catch (\Throwable $e) {
+                            Utils::catchError($this->logger, $e, 'error: woker restart fail...');
+                        } catch (\Exception $e) {
+                            Utils::catchError($this->logger, $e, 'error: woker restart fail...');
+                        }
                         $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $new_pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $this->workers[$new_pid] = $child_process;
                     }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', Logs::LOG_SAVE_FILE_WORKER);
                     unset($this->workers[$pid]);
-                    $this->logger->log('Worker count: ' . count($this->workers), 'info', Logs::LOG_SAVE_FILE_WORKER);
+                    //总进程数跟实际wokers是否相等,不相等说明有异常，需要重启recover所有子进程
+                    if ($this->status == Process::STATUS_RUNNING && $this->configWorkersNum != count($this->workers)) {
+                        $data['pid']   =$this->ppid;
+                        $data['status']=Process::STATUS_RECOVER;
+                        $this->saveMasterData($data);
+                        $this->logger->log('Worker config nums: ' . $this->configWorkersNum . '!=' . count($this->workers), 'error', Logs::LOG_SAVE_FILE_WORKER);
+                    }
+                    $this->logger->log('Worker count: ' . count($this->workers) . '==' . $this->configWorkersNum, 'info', Logs::LOG_SAVE_FILE_WORKER);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
-                    if (empty($this->workers) && $this->status == 'wait') {
+                    if (empty($this->workers) && $this->status == self::STATUS_WAIT) {
                         $this->logger->log('主进程收到所有信号子进程的退出信号，子进程安全退出完成', 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $this->exitMaster();
                     }
@@ -150,6 +174,21 @@ class Process
                     break;
                 }
             }
+        });
+    }
+
+    public function registTimer()
+    {
+        $this->timer=\Swoole\Timer::tick($this->checkTickTimer, function ($timerId) {
+            $this->status  =$this->getMasterData('status');
+            if (empty($this->workers) && $this->status == Process::STATUS_RECOVER) {
+                $data['pid']   =$this->ppid;
+                $data['status']=Process::STATUS_START;
+                $this->saveMasterData($data);
+                $this->start();
+                $this->logger->log('主进程recover...', 'info', Logs::LOG_SAVE_FILE_WORKER);
+            }
+            $this->logger->log('主进程状态：' . $this->status, 'info', Logs::LOG_SAVE_FILE_WORKER);
         });
     }
 
