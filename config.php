@@ -12,6 +12,12 @@ return $config = [
     'logPath'      => __DIR__ . '/log',
     'pidPath'      => __DIR__ . '/log',
     'processName'  => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
+    'redis'        => [
+        'host'=> '192.168.1.105',
+        'port'=> '6379',
+        //'password'=>'',
+    ],
+
     //exec任务相关
     'exec'      => [
         [
