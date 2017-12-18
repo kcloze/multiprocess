@@ -19,24 +19,30 @@ return $config = [
         //'password'=>'',
     ],
 
-    //exec任务相关
+    //exec任务相关,name的名字不能相同
     'exec'      => [
         [
             'name'      => 'kcloze-test-1',
             'bin'       => '/usr/bin/php7.1',
-            'binArgs'   => [__DIR__ . '/test/test.php', 'oop', '123'],
+            'binArgs'   => [__DIR__ . '/test/cli/test.php', 'oop', '123'],
             'workNum'   => 3,
         ],
         [
             'name'      => 'kcloze-test-2',
             'bin'       => '/usr/bin/php7.1',
-            'binArgs'   => [__DIR__ . '/test/test2.php', 'oop', '456'],
+            'binArgs'   => [__DIR__ . '/test/cli/test.php', 'oop', '123'],
+            'workNum'   => 2,
+        ],
+        [
+            'name'      => 'kcloze-test-3',
+            'bin'       => '/usr/bin/php7.1',
+            'binArgs'   => [__DIR__ . '/test/cli/test2.php', 'oop', '456'],
             'workNum'   => 5,
         ],
         // [
         //     'name'      => 'kcloze-test-3',
         //     'bin'       => '/usr/bin/python',
-        //     'binArgs'   => [__DIR__ . '/test/test3.py', 'oop', '369'],
+        //     'binArgs'   => [__DIR__ . '/test/cli/test3.py', 'oop', '369'],
         //     'workNum'   => 2,
         // ],
     ],

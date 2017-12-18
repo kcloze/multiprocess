@@ -22,4 +22,17 @@ class Config
     {
         return self::$config;
     }
+
+    public static function hasRepeatingName($config=[], $chckKey='name')
+    {
+        $nameList=[];
+        foreach ($config as $key => $value) {
+            if (isset($nameList[$value[$chckKey]])) {
+                return true;
+            }
+            $nameList[$value[$chckKey]]=$value[$chckKey];
+        }
+
+        return false;
+    }
 }

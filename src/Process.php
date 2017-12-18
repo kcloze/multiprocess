@@ -34,6 +34,11 @@ class Process
     public function __construct()
     {
         $this->config  =  Config::getConfig();
+
+        if (Config::hasRepeatingName($this->config['exec'], 'name')) {
+            die('exec name has repeating name,fetal error!');
+        }
+
         $this->logger  = Logs::getLogger($this->config['logPath'] ?? []);
 
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
@@ -184,7 +189,7 @@ class Process
                     $this->status=$this->getMasterData('status');
                     //根据wokerName，获取其运行状态
                     $workNameStatus=$this->getMasterData($workName . 'Status');
-                    //主进程状态为running才需要拉起子进程
+                    //主进程状态为start,running且子进程组不是recover状态才需要拉起子进程
                     if ($workNameStatus != Process::STATUS_RECOVER && ($this->status == Process::STATUS_RUNNING || $this->status == Process::STATUS_START)) {
                         try {
                             $newPid  = $childProcess->start();
@@ -210,7 +215,7 @@ class Process
                     }
                     $this->logger->log('Worker count: ' . count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName] . '==' . $this->workersByNamePids[$workName], 'info', Logs::LOG_SAVE_FILE_WORKER);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
-                    if (empty($this->workers) && $this->status == self::STATUS_WAIT) {
+                    if (empty($this->workers) && $this->status == Process::STATUS_WAIT) {
                         $this->logger->log('主进程收到所有信号子进程的退出信号，子进程安全退出完成', 'info', Logs::LOG_SAVE_FILE_WORKER);
                         $this->exitMaster();
                     }
