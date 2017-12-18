@@ -67,6 +67,7 @@ class Console
             } else {
                 $this->logger->log('[pid: ' . $ppid . '] has been stopped fail');
             }
+            $this->getRedis()->set('status',Process::STATUS_WAIT);
         } else {
             exit('service is not running' . PHP_EOL);
         }
@@ -108,6 +109,15 @@ class Console
                 $this->printHelpMessage();
                 break;
         }
+    }
+    private function getRedis()
+    {
+        if ($this->redis && $this->redis->ping()) {
+            return $this->redis;
+        }
+        $this->redis   = new XRedis($this->config['redis']);
+
+        return $this->redis;
     }
 
     public function printHelpMessage()
