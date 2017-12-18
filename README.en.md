@@ -86,8 +86,9 @@ WORKFLOWS
 
       -s start 
       Start multiprocess master and workers.
-      -s start -c=./config
+      -s start -c ./config
       Start multiprocess with specail config file.
+
 
 
       -s stop
