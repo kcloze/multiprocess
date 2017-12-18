@@ -15,19 +15,12 @@ class Console
     private $config   = [];
     private $opt      = [];
 
-    public function __construct()
+    public function __construct($opt, $config)
     {
-        $param          = getopt('s:c::');
-        $this->opt      =$param['s'] ?? '';
-        $configFile     =$param['c'] ?? APP_PATH . '/config.php';
+        $this->opt=$opt;
         if (empty($this->opt)) {
             $this->printHelpMessage();
             exit(1);
-        }
-        if ($configFile && file_exists($configFile)) {
-            $config = require_once $configFile;
-        } else {
-            die('config file can not find!');
         }
         Config::setConfig($config);
         $this->config = Config::getConfig();

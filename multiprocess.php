@@ -12,5 +12,14 @@ date_default_timezone_set('Asia/Shanghai');
 
 require APP_PATH . '/vendor/autoload.php';
 
-$console = new Kcloze\MultiProcess\Console();
+$param                  = getopt('s:c::');
+$opt                    =$param['s'] ?? '';
+$configFile             =$param['c'] ?? APP_PATH . '/config.php';
+if ($configFile && file_exists($configFile)) {
+    $config = require_once $configFile;
+} else {
+    die('config file can not find!');
+}
+
+$console = new Kcloze\MultiProcess\Console($opt, $config);
 $console->run();
