@@ -13,7 +13,7 @@ return $config = [
     'pidPath'      => __DIR__ . '/log',
     'processName'  => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
     'redis'        => [
-        'host'  => '192.168.1.105',
+        'host'  => '127.0.0.1',
         'port'  => '6379',
         'preKey'=> 'SwooleMultiProcess-',
         //'password'=>'',
@@ -23,13 +23,13 @@ return $config = [
     'exec'      => [
         [
             'name'      => 'kcloze-test-1',
-            'bin'       => '/usr/local/bin/php',
+            'bin'       => '/usr/bin/php7.1',
             'binArgs'   => [__DIR__ . '/test/test.php', 'oop', '123'],
             'workNum'   => 3,
         ],
         [
             'name'      => 'kcloze-test-2',
-            'bin'       => '/usr/local/bin/php',
+            'bin'       => '/usr/bin/php7.1',
             'binArgs'   => [__DIR__ . '/test/test2.php', 'oop', '456'],
             'workNum'   => 5,
         ],
