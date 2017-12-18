@@ -11,7 +11,6 @@ define('APP_PATH', __DIR__);
 date_default_timezone_set('Asia/Shanghai');
 
 require APP_PATH . '/vendor/autoload.php';
-$config = require_once APP_PATH . '/config.php';
 
-$console = new Kcloze\MultiProcess\Console($config);
+$console = new Kcloze\MultiProcess\Console();
 $console->run();

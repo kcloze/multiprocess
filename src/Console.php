@@ -13,9 +13,22 @@ class Console
 {
     public $logger    = null;
     private $config   = [];
+    private $opt      = [];
 
-    public function __construct($config)
+    public function __construct()
     {
+        $param          = getopt('s:c::');
+        $this->opt      =$param['s'] ?? '';
+        $configFile     =$param['c'] ?? APP_PATH . '/config.php';
+        if (empty($this->opt)) {
+            $this->printHelpMessage();
+            exit(1);
+        }
+        if ($configFile && file_exists($configFile)) {
+            $config = require_once $configFile;
+        } else {
+            die('config file can not find!');
+        }
         Config::setConfig($config);
         $this->config = Config::getConfig();
         $this->logger = Logs::getLogger(Config::getConfig()['logPath'] ?? []);
@@ -23,7 +36,7 @@ class Console
 
     public function run()
     {
-        $this->getOpt();
+        $this->runOpt();
     }
 
     public function start()
@@ -79,15 +92,9 @@ class Console
         $this->stop(SIGTERM);
     }
 
-    public function getOpt()
+    public function runOpt()
     {
-        global $argv;
-        if (empty($argv[1])) {
-            $this->printHelpMessage();
-            exit(1);
-        }
-        $opt=$argv[1];
-        switch ($opt) {
+        switch ($this->opt) {
             case 'start':
                 $this->start();
                 break;
@@ -128,16 +135,18 @@ WORKFLOWS
       Show this help, or workflow help for command.
 
 
-      restart
+      -s restart
       Stop, then start multiprocess master and workers.
 
-      start
+      -s start 
       Start multiprocess master and workers.
+      -s start -c=./config
+      Start multiprocess with specail config file.
 
-      stop
+      -s stop
       Wait all running workers smooth exit, please check multiprocess status for a while.
 
-      exit
+      -s exit
       Kill all running workers and master PIDs.
 
 

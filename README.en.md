@@ -71,7 +71,7 @@ NAME
       php multiprocess - manage multiprocess
 
 SYNOPSIS
-      php multiprocess command [options]
+      php multiprocess -s command [options] -c config file path
           Manage multiprocess daemons.
 
 
@@ -81,17 +81,19 @@ WORKFLOWS
       help [command]
       Show this help, or workflow help for command.
 
-
-      restart
+      -s restart
       Stop, then start multiprocess master and workers.
 
-      start
+      -s start 
       Start multiprocess master and workers.
+      -s start -c=./config
+      Start multiprocess with specail config file.
 
-      stop
+
+      -s stop
       Wait all running workers smooth exit, please check multiprocess status for a while.
 
-      exit
+      -s exit
       Kill all running workers and master PIDs.
 
 ```
