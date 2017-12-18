@@ -29,12 +29,13 @@ class Process
     private $pidInfoFile         = 'master.info';
     private $status              =''; //主进程状态
     private $timer               =''; //定时器id
+    private $redis               =null; //redis连接
 
     public function __construct()
     {
         $this->config  =  Config::getConfig();
         $this->logger  = Logs::getLogger($this->config['logPath'] ?? []);
-        $this->redis   = new XRedis($this->config['redis']);
+
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             Utils::mkdir($this->config['pidPath']);
             $this->pidFile    =$this->config['pidPath'] . '/' . $this->pidFile;
@@ -148,6 +149,7 @@ class Process
         });
         $pid                                        = $reserveProcess->start();
         $this->workers[$pid]                        = $reserveProcess;
+        $this->workersByNamePids[$workOne['name']]  =$this->workersByNamePids[$workOne['name']] ?? 0;
         $this->workersByNamePids[$workOne['name']]++;
         $this->workersByPidName[$pid]               =$workOne['name'];
 
@@ -239,6 +241,9 @@ class Process
     {
         //修改主进程状态为stop
         $this->status   =self::STATUS_STOP;
+        $data['status'] =self::STATUS_STOP;
+        $this->saveMasterData($data);
+
         if ($this->workers) {
             foreach ($this->workers as $pid => $worker) {
                 //强制杀workers子进程
@@ -262,6 +267,11 @@ class Process
         $data['status']=self::STATUS_WAIT;
         $this->saveMasterData($data);
         $this->status = self::STATUS_WAIT;
+        foreach ($this->configWorkersByNameNum as $key => $value) {
+            $workName                  =$key;
+            $data[$workName . 'Status']=self::STATUS_WAIT;
+            $this->saveMasterData($data);
+        }
     }
 
     //退出主进程
@@ -308,6 +318,7 @@ class Process
 
     private function saveMasterData($data=[])
     {
+        $this->redis   = $this->getRedis();
         foreach ((array) $data as $key => $value) {
             $key && $this->redis->set($key, $value);
         }
@@ -315,15 +326,33 @@ class Process
 
     private function clearMasterData()
     {
+        $this->redis = $this->getRedis();
+
         $data=$this->configWorkersByNameNum;
         foreach ((array) $data as $key => $value) {
             $value && $this->redis->del($key . 'Status');
+            $this->logger->log('主进程退出前删除woker redis key： ' . $key . 'Status', 'info', Logs::LOG_SAVE_FILE_WORKER);
         }
         $this->redis->del('status');
+
+        $this->logger->log('主进程退出前删除master redis key： status', 'info', Logs::LOG_SAVE_FILE_WORKER);
     }
 
     private function getMasterData($key)
     {
-        return $this->redis->get($key);
+        $this->redis = $this->getRedis();
+        if ($key) {
+            return $this->redis->get($key);
+        }
+    }
+
+    private function getRedis()
+    {
+        if ($this->redis && $this->redis->ping()) {
+            return $this->redis;
+        }
+        $this->redis   = new XRedis($this->config['redis']);
+
+        return $this->redis;
     }
 }

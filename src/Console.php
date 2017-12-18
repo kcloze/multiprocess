@@ -47,7 +47,7 @@ class Console
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             $masterPidFile=$this->config['pidPath'] . '/master.pid';
         } else {
-            $masterPidFile=APP_PATH . '/log/master.pid';
+            die('config pidPath must be set!');
         }
 
         if (file_exists($masterPidFile)) {
