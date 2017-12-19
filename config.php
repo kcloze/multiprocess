@@ -12,6 +12,7 @@ return $config = [
     'logPath'      => __DIR__ . '/log',
     'pidPath'      => __DIR__ . '/log',
     'processName'  => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
+    'sleepTime'    => 3000, // 子进程退出之后，自动拉起暂停毫秒数
     'redis'        => [
         'host'  => '127.0.0.1',
         'port'  => '6379',
