@@ -14,6 +14,7 @@ class Console
     public $logger    = null;
     private $config   = [];
     private $opt      = [];
+    private $redis    = null;
 
     public function __construct($opt, $config)
     {
@@ -67,7 +68,7 @@ class Console
             } else {
                 $this->logger->log('[pid: ' . $ppid . '] has been stopped fail');
             }
-            $this->getRedis()->set('status',Process::STATUS_WAIT);
+            $this->getRedis()->set('status', Process::STATUS_WAIT);
         } else {
             exit('service is not running' . PHP_EOL);
         }
@@ -110,15 +111,6 @@ class Console
                 break;
         }
     }
-    private function getRedis()
-    {
-        if ($this->redis && $this->redis->ping()) {
-            return $this->redis;
-        }
-        $this->redis   = new XRedis($this->config['redis']);
-
-        return $this->redis;
-    }
 
     public function printHelpMessage()
     {
@@ -155,5 +147,15 @@ WORKFLOWS
 
 EOF;
         echo $msg;
+    }
+
+    private function getRedis()
+    {
+        if ($this->redis && $this->redis->ping()) {
+            return $this->redis;
+        }
+        $this->redis   = new XRedis($this->config['redis']);
+
+        return $this->redis;
     }
 }
