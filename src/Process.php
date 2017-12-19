@@ -16,6 +16,7 @@ class Process
     const STATUS_WAIT               ='wait'; //主进程wait状态
     const STATUS_STOP               ='stop'; //主进程stop状态
     const STATUS_RECOVER            ='recover'; //主进程recover状态
+    const SLEEP_TIME                =1000; //子进程退出之后，自动拉起暂停毫秒数
 
     public $processName    = ':swooleMultiProcess'; // 进程重命名, 方便 shell 脚本管理
     private $workers;
@@ -191,6 +192,7 @@ class Process
                     $workNameStatus=$this->getMasterData($workName . 'Status');
                     //主进程状态为start,running且子进程组不是recover状态才需要拉起子进程
                     if ($workNameStatus != Process::STATUS_RECOVER && ($this->status == Process::STATUS_RUNNING || $this->status == Process::STATUS_START)) {
+                        usleep(Process::SLEEP_TIME);
                         try {
                             $newPid  = $childProcess->start();
                         } catch (\Throwable $e) {
