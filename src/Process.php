@@ -27,7 +27,6 @@ class Process
     private $sleepTime            = 2000; //子进程退出之后，自动拉起暂停毫秒数
     private $config               = [];
     private $pidFile              = 'master.pid';
-    private $pidInfoFile          = 'master.info';
     private $status               =''; //主进程状态
     private $timer                =''; //定时器id
     private $redis                =null; //redis连接
@@ -45,7 +44,6 @@ class Process
         if (isset($this->config['pidPath']) && !empty($this->config['pidPath'])) {
             Utils::mkdir($this->config['pidPath']);
             $this->pidFile    =$this->config['pidPath'] . '/' . $this->pidFile;
-            $this->pidInfoFile=$this->config['pidPath'] . '/' . $this->pidInfoFile;
         } else {
             die('config pidPath must be set!');
         }
@@ -64,6 +62,7 @@ class Process
          * 请管理好此文件位置, 使用 systemd 管理进程时会用到此文件
          * 判断文件是否存在，并判断进程是否在运行
          */
+
         if (file_exists($this->pidFile)) {
             $pid=$this->getMasterPid();
             if ($pid && @\Swoole\Process::kill($pid, 0)) {
@@ -335,7 +334,7 @@ class Process
 
     private function getMasterPid()
     {
-        file_get_contents($this->pidFile);
+        return file_get_contents($this->pidFile);
     }
 
     private function saveMasterData($data=[])
