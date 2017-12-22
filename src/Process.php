@@ -159,9 +159,8 @@ class Process
         $pid                                        = $reserveProcess->start();
         $this->workers[$pid]                        = $reserveProcess;
         $this->workersByNamePids[$workOne['name']]  =$this->workersByNamePids[$workOne['name']] ?? 0;
-        $this->workersByNamePids[$workOne['name']]++;
+        $this->workersByNamePids[$workOne['name']]  =$this->counter('counter-' . $workOne['name'], 'add');
         $this->workersByPidName[$pid]               =$workOne['name'];
-
         $this->saveMasterData([$workOne['name'] . 'Status'=>self::STATUS_RUNNING]);
         $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start...', 'info', $this->logSaveFileWorker);
     }
@@ -200,18 +199,18 @@ class Process
                         }
                         $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $newPid, 'info', $this->logSaveFileWorker);
                         $this->workers[$newPid] = $childProcess;
-                        $this->workersByNamePids[$workName]++;
+                        $this->workersByNamePids[$workName]=$this->counter('counter-' . $workName, 'add');
                         $this->workersByPidName[$newPid]        =$workName;
                         $this->saveMasterData([$workName . 'Status'=>Process::STATUS_RUNNING]);
                     }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', $this->logSaveFileWorker);
                     unset($this->workers[$pid], $this->workersByPidName[$pid]);
-                    $this->workersByNamePids[$workName]--;
+                    $this->workersByNamePids[$workName]=$this->counter('counter-' . $workName, 'del');
                     //根据配置workername进程数跟实际wokers是否相等,不相等说明有异常，需要重启recover所有子进程
-                    if ($workNameStatus == Process::STATUS_RUNNING && $this->configWorkersByNameNum[$workName] != $this->workersByNamePids[$workName]) {
-                        $this->saveMasterData([$workName . 'Status'=>Process::STATUS_RECOVER]);
-                        $this->logger->log('Worker config nums: ' . $this->configWorkersByNameNum[$workName] . '!=' . $this->workersByNamePids[$workName], 'error', $this->logSaveFileWorker);
-                    }
+                    // if ($workNameStatus == Process::STATUS_RUNNING && $this->configWorkersByNameNum[$workName] != $this->workersByNamePids[$workName]) {
+                    //     $this->saveMasterData([$workName . 'Status'=>Process::STATUS_RECOVER]);
+                    //     $this->logger->log('Worker config nums: ' . $this->configWorkersByNameNum[$workName] . '!=' . $this->workersByNamePids[$workName], 'error', $this->logSaveFileWorker);
+                    // }
                     $this->logger->log('Worker count: ' . count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName] . '==' . $this->workersByNamePids[$workName], 'info', $this->logSaveFileWorker);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
                     if (empty($this->workers) && $this->status == Process::STATUS_WAIT) {
@@ -233,14 +232,14 @@ class Process
                 $workName=$key;
                 $this->status  =$this->getMasterData('status');
                 $workNameStatus=$this->getMasterData($workName . 'Status');
-
-                if ($this->workersByNamePids[$workName] <= 0) {
+                $workNameNumb=$this->getMasterData('counter-' . $workName);
+                if ($workNameNumb <= 0) {
                     $this->saveMasterData([$workName . 'Status'=>Process::STATUS_START]);
                     $this->startByWorkerName($workName);
                     $this->logger->log('主进程 recover 子进程：' . $workName, 'info', $this->logSaveFileWorker);
                 }
                 $this->logger->log('主进程状态：' . $this->status . ' 数量：' . count($this->workers), 'info', $this->logSaveFileWorker);
-                $this->logger->log('[' . $workName . ']子进程状态：' . $workNameStatus . ' 数量：' . $this->workersByNamePids[$workName], 'info', $this->logSaveFileWorker);
+                $this->logger->log('[' . $workName . ']子进程状态：' . $workNameStatus . ' 数量：' . $workNameNumb, 'info', $this->logSaveFileWorker);
             }
         });
     }
@@ -253,7 +252,7 @@ class Process
                 $workName=$this->workersByPidName[$pid];
                 if (!@\Swoole\Process::kill($pid, 0)) {
                     unset($this->workers[$pid], $this->workersByPidName[$pid]);
-                    $this->workersByNamePids[$workName]--;
+                    $this->workersByNamePids[$workName]=$this->counter('counter-' . $workName, 'del');
                     $this->logger->log('子进程异常退出：' . $pid . ' name：' . $workName, 'error', $this->logSaveFileWorker);
                 } else {
                     $this->logger->log('子进程正常：' . $pid . ' name：' . $workName, 'info', $this->logSaveFileWorker);
@@ -355,11 +354,22 @@ class Process
         $data=$this->configWorkersByNameNum;
         foreach ((array) $data as $key => $value) {
             $value && $this->redis->del($key . 'Status');
+            $value && $this->redis->del('counter-' . $key);
             $this->logger->log('主进程退出前删除woker redis key： ' . $key . 'Status', 'info', $this->logSaveFileWorker);
         }
         $this->redis->del('status');
 
         $this->logger->log('主进程退出前删除master redis key： status', 'info', $this->logSaveFileWorker);
+    }
+
+    private function counter($key, $opt='add')
+    {
+        $this->redis = $this->getRedis();
+        if ($opt == 'add') {
+            return $this->redis->incr($key);
+        } elseif ($opt == 'del') {
+            return $this->redis->decr($key);
+        }
     }
 
     private function getMasterData($key)
