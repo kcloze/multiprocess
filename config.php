@@ -16,7 +16,7 @@ return $config = [
     'processName'      => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
     'sleepTime'        => 3000, // 子进程退出之后，自动拉起暂停毫秒数
     'redis'            => [
-        'host'  => '127.0.0.1',
+        'host'  => '192.168.1.105',
         'port'  => '6379',
         'preKey'=> 'SwooleMultiProcess-',
         //'password'=>'',
@@ -26,19 +26,19 @@ return $config = [
     'exec'      => [
         [
             'name'      => 'kcloze-test-1',
-            'bin'       => '/usr/bin/php7.1',
+            'bin'       => '/usr/local/bin/php',
             'binArgs'   => [__DIR__ . '/test/cli/test.php', 'oop', '123'],
             'workNum'   => 3,
         ],
         [
             'name'      => 'kcloze-test-2',
-            'bin'       => '/usr/bin/php7.1',
+            'bin'       => '/usr/local/bin/php',
             'binArgs'   => [__DIR__ . '/test/cli/test.php', 'oop', '123'],
             'workNum'   => 2,
         ],
         [
             'name'      => 'kcloze-test-3',
-            'bin'       => '/usr/bin/php7.1',
+            'bin'       => '/usr/local/bin/php',
             'binArgs'   => [__DIR__ . '/test/cli/test2.php', 'oop', '456'],
             'workNum'   => 5,
         ],
