@@ -68,7 +68,7 @@ class Console
             } else {
                 $this->logger->log('[pid: ' . $ppid . '] has been stopped fail');
             }
-            $this->getRedis()->set('status', Process::STATUS_WAIT);
+            $this->getRedis()->set(Process::REDIS_MASTER_KEY, Process::STATUS_WAIT);
         } else {
             exit('service is not running' . PHP_EOL);
         }
