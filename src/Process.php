@@ -78,6 +78,9 @@ class Process
         $this->setProcessName('multiprocess master ' . $this->ppid . $this->processName);
     }
 
+    /**
+     * 启动主进程.
+     */
     public function start()
     {
         $this->saveMasterData([self::REDIS_MASTER_KEY =>self::STATUS_START]);
@@ -95,9 +98,11 @@ class Process
             $workOne['bin']     =$value['bin'];
             $workOne['name']    =$value['name'];
             //子进程带上通用识别文字，方便ps查询进程
-            $workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
+            //$workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
+            // 在使用TP等框架命令行时，多余的参数[$this->processName]会报错，需要另外的方式实现2019.09.01
+            $workOne['binArgs']= $value['binArgs'];
             //开启多个子进程
-            for ($i = 0; $i < $value['workNum']; $i++) {
+            for ($i = 0; $i < $value['workNum']; ++$i) {
                 $this->reserveExec($i, $workOne);
             }
             $this->configWorkersByNameNum[$value['name']] = $value['workNum'];
@@ -125,9 +130,11 @@ class Process
             $workOne['bin']     =$value['bin'];
             $workOne['name']    =$value['name'];
             //子进程带上通用识别文字，方便ps查询进程
-            $workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
+            // $workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
+            // 在使用TP等框架命令行时，多余的参数[$this->processName]会报错2019.09.01
+            $workOne['binArgs']= $value['binArgs'];
             //开启多个子进程
-            for ($i = 0; $i < $value['workNum']; $i++) {
+            for ($i = 0; $i < $value['workNum']; ++$i) {
                 $this->reserveExec($i, $workOne);
             }
         }
@@ -181,7 +188,12 @@ class Process
         });
         \Swoole\Process::signal(SIGCHLD, function ($signo) {
             while (true) {
-                $ret = \Swoole\Process::wait(false);
+                // 捕获回收子进程异常
+                try {
+                    $ret = \Swoole\Process::wait(false);
+                } catch (\Exception $e) {
+                    $this->logger->log('signoError: ' . $signo . $e->getMessage(), 'error', Logs::LOG_SAVE_FILE_WORKER);
+                }
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $childProcess = $this->workers[$pid];
@@ -190,7 +202,7 @@ class Process
                     //根据wokerName，获取其运行状态
                     $workNameStatus=$this->getMasterData(self::REDIS_WORKER_STATUS_KEY . $workName);
                     //主进程状态为start,running且子进程组不是recover状态才需要拉起子进程
-                    if ($workNameStatus != Process::STATUS_RECOVER && ($this->status == Process::STATUS_RUNNING || $this->status == Process::STATUS_START)) {
+                    if (self::STATUS_RECOVER != $workNameStatus && (self::STATUS_RUNNING == $this->status || self::STATUS_START == $this->status)) {
                         try {
                             $i=0;
                             //重启有可能失败，最多尝试10次
@@ -201,7 +213,7 @@ class Process
                                 }
                                 $this->logger->log($workName . '子进程重启失败，子进程尝试' . $i . '次重启', 'info', $this->logSaveFileWorker);
 
-                                $i++;
+                                ++$i;
                             }
                         } catch (\Throwable $e) {
                             Utils::catchError($this->logger, $e, 'error: woker restart fail...');
@@ -213,18 +225,18 @@ class Process
                             $this->workers[$newPid] = $childProcess;
                             $this->setWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workName, $newPid, 'add');
                             $this->workersByPidName[$newPid]        =$workName;
-                            $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>Process::STATUS_RUNNING]);
+                            $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>self::STATUS_RUNNING]);
                         } else {
-                            $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>Process::STATUS_RECOVER]);
+                            $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>self::STATUS_RECOVER]);
                             $this->logger->log($workName . '子进程重启失败，该组子进程进入recover状态', 'info', $this->logSaveFileWorker);
                         }
                     }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', $this->logSaveFileWorker);
                     unset($this->workers[$pid], $this->workersByPidName[$pid]);
                     $this->setWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workName, $pid, 'del');
-                    $this->logger->log('Worker count: ' . count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName], 'info', $this->logSaveFileWorker);
+                    $this->logger->log('Worker count: ' . \count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName], 'info', $this->logSaveFileWorker);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
-                    if (empty($this->workers) && $this->status == Process::STATUS_WAIT) {
+                    if (empty($this->workers) && self::STATUS_WAIT == $this->status) {
                         $this->logger->log('主进程收到所有信号子进程的退出信号，子进程安全退出完成', 'info', $this->logSaveFileWorker);
                         $this->exitMaster();
                     }
@@ -243,13 +255,13 @@ class Process
                 $workNameStatus=$this->getMasterData(self::REDIS_WORKER_STATUS_KEY . $workName);
                 $workNameMembers=$this->getWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workName);
                 $this->checkChildProcess($workName, $workNameMembers);
-                $count=count($workNameMembers);
+                $count=\count($workNameMembers);
                 if ($count <= 0) {
-                    $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>Process::STATUS_START]);
+                    $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>self::STATUS_START]);
                     $this->startByWorkerName($workName);
                     $this->logger->log('主进程 recover 子进程：' . $workName, 'info', $this->logSaveFileWorker);
                 }
-                $this->logger->log('主进程状态：' . $this->status . ' 数量：' . count($this->workers), 'info', $this->logSaveFileWorker);
+                $this->logger->log('主进程状态：' . $this->status . ' 数量：' . \count($this->workers), 'info', $this->logSaveFileWorker);
                 $this->logger->log('[' . $workName . ']子进程状态：' . $workNameStatus . ' 数量：' . $count . ' pids:' . serialize($workNameMembers), 'info', $this->logSaveFileWorker);
             }
         });
@@ -281,14 +293,14 @@ class Process
         if ($this->workers) {
             foreach ($this->workers as $pid => $worker) {
                 //强制杀workers子进程
-            if (\Swoole\Process::kill($pid) == true) {
-                unset($this->workers[$pid]);
-                $this->logger->log('子进程[' . $pid . ']收到强制退出信号,退出成功', 'info', $this->logSaveFileWorker);
-            } else {
-                $this->logger->log('子进程[' . $pid . ']收到强制退出信号,但退出失败', 'info', $this->logSaveFileWorker);
-            }
+                if (true == \Swoole\Process::kill($pid)) {
+                    unset($this->workers[$pid]);
+                    $this->logger->log('子进程[' . $pid . ']收到强制退出信号,退出成功', 'info', $this->logSaveFileWorker);
+                } else {
+                    $this->logger->log('子进程[' . $pid . ']收到强制退出信号,但退出失败', 'info', $this->logSaveFileWorker);
+                }
 
-                $this->logger->log('Worker count: ' . count($this->workers), 'info', $this->logSaveFileWorker);
+                $this->logger->log('Worker count: ' . \count($this->workers), 'info', $this->logSaveFileWorker);
             }
         }
         $this->exitMaster();
@@ -325,7 +337,7 @@ class Process
     private function setProcessName($name)
     {
         //mac os不支持进程重命名
-        if (function_exists('swoole_set_process_name') && PHP_OS != 'Darwin') {
+        if (\function_exists('swoole_set_process_name') && PHP_OS != 'Darwin') {
             swoole_set_process_name($name);
         }
     }
@@ -375,9 +387,9 @@ class Process
     private function setWorkerList($key, $member, $opt='add')
     {
         $this->redis = $this->getRedis();
-        if ($opt == 'add') {
+        if ('add' == $opt) {
             return $this->redis->sAdd($key, $member);
-        } elseif ($opt == 'del') {
+        } elseif ('del' == $opt) {
             return $this->redis->sRemove($key, $member);
         }
     }
