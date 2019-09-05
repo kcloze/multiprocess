@@ -11,13 +11,16 @@ namespace Kcloze\MultiProcess;
 
 class Process
 {
+    const CHILD_PROCESS_CAN_RESTART        ='staticWorker'; //子进程可以重启,进程个数固定
+    const CHILD_PROCESS_CAN_NOT_RESTART    ='dynamicWorker'; //子进程不可以重启，进程个数根据队列堵塞情况动态分配
+
     const STATUS_START                     ='start'; //主进程启动中状态
     const STATUS_RUNNING                   ='runnning'; //主进程正常running状态
     const STATUS_WAIT                      ='wait'; //主进程wait状态
     const STATUS_STOP                      ='stop'; //主进程stop状态
     const STATUS_RECOVER                   ='recover'; //主进程recover状态
-    const REDIS_MASTER_KEY                 ='Status'; //主进程recover状态
-    const REDIS_WORKER_STATUS_KEY          ='Status-'; //主进程recover状态
+    const REDIS_MASTER_KEY                 ='Status'; //Redis主进程状态key
+    const REDIS_WORKER_STATUS_KEY          ='Status-'; //Redis 子进程状态key
     const REDIS_WORKER_MEMBER_KEY          ='Members-'; //主进程recover状态
 
     public $processName    = ':swooleMultiProcess'; // 进程重命名, 方便 shell 脚本管理
@@ -33,6 +36,10 @@ class Process
     private $timer                =''; //定时器id
     private $redis                =null; //redis连接
     private $logSaveFileWorker    = 'workers.log';
+
+    private $queueMaxNum          = 1000; //队列达到一定长度，增加子进程个数
+    private $workersInfoList      = []; // 子进程队列
+    private $dynamicWorkerNum     = []; //动态（不能重启）子进程计数，最大数为每个脚本配置dynamicWorkNum，它的个数是动态变化的
 
     public function __construct()
     {
@@ -95,15 +102,12 @@ class Process
                 $this->logger->log('config bin/binArgs must be not null!', 'error', $this->logSaveFileWorker);
             }
 
-            $workOne['bin']     =$value['bin'];
-            $workOne['name']    =$value['name'];
-            //子进程带上通用识别文字，方便ps查询进程
-            //$workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
-            // 在使用TP等框架命令行时，多余的参数[$this->processName]会报错，需要另外的方式实现2019.09.01
-            $workOne['binArgs']= $value['binArgs'];
+            $workOne['bin']     = $value['bin'];
+            $workOne['name']    = $value['name'];
+            $workOne['binArgs'] = $value['binArgs'];
             //开启多个子进程
             for ($i = 0; $i < $value['workNum']; ++$i) {
-                $this->reserveExec($i, $workOne);
+                $this->reserveExec($i, $workOne, self::CHILD_PROCESS_CAN_RESTART);
             }
             $this->configWorkersByNameNum[$value['name']] = $value['workNum'];
         }
@@ -127,12 +131,9 @@ class Process
                 $this->logger->log('config bin/binArgs must be not null!', 'error', $this->logSaveFileWorker);
             }
 
-            $workOne['bin']     =$value['bin'];
-            $workOne['name']    =$value['name'];
-            //子进程带上通用识别文字，方便ps查询进程
-            // $workOne['binArgs']=array_merge($value['binArgs'], [$this->processName]);
-            // 在使用TP等框架命令行时，多余的参数[$this->processName]会报错2019.09.01
-            $workOne['binArgs']= $value['binArgs'];
+            $workOne['bin']     = $value['bin'];
+            $workOne['name']    = $value['name'];
+            $workOne['binArgs'] = $value['binArgs'];
             //开启多个子进程
             for ($i = 0; $i < $value['workNum']; ++$i) {
                 $this->reserveExec($i, $workOne);
@@ -145,11 +146,11 @@ class Process
     /**
      * 启动子进程，跑业务代码
      *
-     * @param [type] $num
-     * @param [type] $workOne
-     * @param mixed  $workNum
+     * @param int    $workNum
+     * @param mixed  $workOne
+     * @param string $workerType 是否会重启 canRestart|unRestart
      */
-    public function reserveExec($workNum, $workOne)
+    public function reserveExec($workNum, $workOne, $workerType=self::CHILD_PROCESS_CAN_RESTART)
     {
         $reserveProcess = new \Swoole\Process(function ($worker) use ($workNum, $workOne) {
             usleep($this->sleepTime);
@@ -166,15 +167,19 @@ class Process
             $this->logger->log('worker id: ' . $workNum . ' is done!!!', 'info', $this->logSaveFileWorker);
             $worker->exit(0);
         });
-        $pid                                        = $reserveProcess->start();
-        $this->workers[$pid]                        = $reserveProcess;
+        $pid                                       = $reserveProcess->start();
+        $this->workers[$pid]                       = $reserveProcess;
+        $this->workersInfoList[$pid]['type']       = $workerType;
+        $this->workersInfoList[$pid]['workOne']    = $workOne;
         $this->setWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workOne['name'], $pid, 'add');
-        $this->workersByPidName[$pid]               =$workOne['name'];
+        $this->workersByPidName[$pid]              = $workOne['name'];
         $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workOne['name'] =>self::STATUS_RUNNING]);
-        $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start...', 'info', $this->logSaveFileWorker);
+        $this->logger->log('worker id: ' . $workNum . ' pid: ' . $pid . ' is start... ' . $workerType, 'info', $this->logSaveFileWorker);
     }
 
-    //注册信号
+    /**
+     * 注册信号.
+     */
     public function registSignal()
     {
         \Swoole\Process::signal(SIGTERM, function ($signo) {
@@ -197,12 +202,13 @@ class Process
                 if ($ret) {
                     $pid           = $ret['pid'];
                     $childProcess = $this->workers[$pid];
-                    $workName=$this->workersByPidName[$pid];
+                    $workName = $this->workersByPidName[$pid];
+                    $workerType = $this->workersInfoList[$pid]['type'];
                     $this->status=$this->getMasterData(self::REDIS_MASTER_KEY);
                     //根据wokerName，获取其运行状态
                     $workNameStatus=$this->getMasterData(self::REDIS_WORKER_STATUS_KEY . $workName);
-                    //主进程状态为start,running且子进程组不是recover状态才需要拉起子进程
-                    if (self::STATUS_RECOVER != $workNameStatus && (self::STATUS_RUNNING == $this->status || self::STATUS_START == $this->status)) {
+                    //子进程为可重启进程，主进程状态为start,running且子进程组不是recover状态才需要拉起子进程
+                    if (self::CHILD_PROCESS_CAN_RESTART == $workerType && self::STATUS_RECOVER != $workNameStatus && (self::STATUS_RUNNING == $this->status || self::STATUS_START == $this->status)) {
                         try {
                             $i=0;
                             //重启有可能失败，最多尝试10次
@@ -223,16 +229,22 @@ class Process
                         if ($newPid > 0) {
                             $this->logger->log("Worker Restart, kill_signal={$ret['signal']} PID=" . $newPid, 'info', $this->logSaveFileWorker);
                             $this->workers[$newPid] = $childProcess;
+                            $this->workersInfoList[$newPid]['type']      = $workerType;
+                            $this->workersInfoList[$newPid]['workOne']   = $this->workersInfoList[$pid]['workOne'];
                             $this->setWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workName, $newPid, 'add');
-                            $this->workersByPidName[$newPid]        =$workName;
+                            $this->workersByPidName[$newPid]        = $workName;
                             $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>self::STATUS_RUNNING]);
                         } else {
                             $this->saveMasterData([self::REDIS_WORKER_STATUS_KEY . $workName=>self::STATUS_RECOVER]);
                             $this->logger->log($workName . '子进程重启失败，该组子进程进入recover状态', 'info', $this->logSaveFileWorker);
                         }
                     }
+                    // 动态子进程
+                    if (self::CHILD_PROCESS_CAN_NOT_RESTART == $workerType) {
+                        --$this->dynamicWorkerNum[$workName];
+                    }
                     $this->logger->log("Worker Exit, kill_signal={$ret['signal']} PID=" . $pid, 'info', $this->logSaveFileWorker);
-                    unset($this->workers[$pid], $this->workersByPidName[$pid]);
+                    unset($this->workers[$pid], $this->workersByPidName[$pid], $this->workersInfoList[$pid]);
                     $this->setWorkerList(self::REDIS_WORKER_MEMBER_KEY . $workName, $pid, 'del');
                     $this->logger->log('Worker count: ' . \count($this->workers) . '  [' . $workName . ']  ' . $this->configWorkersByNameNum[$workName], 'info', $this->logSaveFileWorker);
                     //如果$this->workers为空，且主进程状态为wait，说明所有子进程安全退出，这个时候主进程退出
@@ -247,9 +259,13 @@ class Process
         });
     }
 
+    /**
+     * 注册定时器.
+     */
     public function registTimer()
     {
         $this->timer=\Swoole\Timer::tick($this->checkTickTimer, function ($timerId) {
+            $workNameStatus = '';
             foreach ($this->configWorkersByNameNum as $workName => $value) {
                 $this->status  =$this->getMasterData(self::REDIS_MASTER_KEY);
                 $workNameStatus=$this->getMasterData(self::REDIS_WORKER_STATUS_KEY . $workName);
@@ -263,6 +279,30 @@ class Process
                 }
                 $this->logger->log('主进程状态：' . $this->status . ' 数量：' . \count($this->workers), 'info', $this->logSaveFileWorker);
                 $this->logger->log('[' . $workName . ']子进程状态：' . $workNameStatus . ' 数量：' . $count . ' pids:' . serialize($workNameMembers), 'info', $this->logSaveFileWorker);
+            }
+            // 动态进程控制todo
+            foreach ($this->config['exec'] as $key => $value) {
+                if (!isset($value['dynamicWorkNum']) || $value['dynamicWorkNum'] < 1 || !isset($value['queueNumCacheKey']) || !$value['queueNumCacheKey']) {
+                    continue;
+                }
+                if (!isset($value['bin']) || !isset($value['binArgs'])) {
+                    $this->logger->log('config bin/binArgs must be not null!', 'error', $this->logSaveFileWorker);
+                }
+                $queueNum = $this->getCacheData($value['queueNumCacheKey']);
+                $this->dynamicWorkerNum[$value['name']] = isset($this->dynamicWorkerNum[$value['name']]) ? $this->dynamicWorkerNum[$value['name']] : 0;
+                if ($queueNum < $this->queueMaxNum || $this->dynamicWorkerNum[$value['name']] >= $value['dynamicWorkNum']) {
+                    continue;
+                }
+                $workOne['bin']   = $value['bin'];
+                $workOne['name']  = $value['name'];
+                $workOne['binArgs']= $value['binArgs'];
+                $canStartNum = $value['dynamicWorkNum'] - $this->dynamicWorkerNum[$value['name']];
+
+                //开启多个子进程
+                for ($i = 0; $i < $canStartNum; ++$i) {
+                    $this->reserveExec($i, $workOne, self::CHILD_PROCESS_CAN_NOT_RESTART);
+                    ++$this->dynamicWorkerNum[$value['name']];
+                }
             }
         });
     }
@@ -394,6 +434,13 @@ class Process
         }
     }
 
+    /**
+     * 获取子进程列表.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
     private function getWorkerList($key)
     {
         $this->redis = $this->getRedis();
@@ -401,6 +448,13 @@ class Process
         return $this->redis->sMembers($key);
     }
 
+    /**
+     * 获取主进程数据.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
     private function getMasterData($key)
     {
         $this->redis = $this->getRedis();
@@ -409,6 +463,26 @@ class Process
         }
     }
 
+    /**
+     * 获取缓存数据.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
+    private function getCacheData($key)
+    {
+        $this->redis = $this->getRedis();
+        if ($key) {
+            return $this->redis->get($key);
+        }
+
+        return false;
+    }
+
+    /**
+     * 获取redis实例.
+     */
     private function getRedis()
     {
         if ($this->redis && $this->redis->ping()) {
