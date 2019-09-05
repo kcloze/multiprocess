@@ -20,6 +20,7 @@ return $config = [
         'port'  => '6379',
         'preKey'=> 'SwooleMultiProcess-',
         //'password'=>'',
+        'select' => 0, // 操作库(可选参数，默认0)
     ],
 
     //exec任务相关,name的名字不能相同

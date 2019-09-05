@@ -153,7 +153,7 @@ class Process
     public function reserveExec($workNum, $workOne, $workerType=self::CHILD_PROCESS_CAN_RESTART)
     {
         $reserveProcess = new \Swoole\Process(function ($worker) use ($workNum, $workOne) {
-            usleep($this->sleepTime);
+            usleep($this->sleepTime * 1000); // usleep单位是微妙，$this->sleepTime * 1000 转为毫秒
             $this->checkMpid($worker);
             try {
                 $this->logger->log('Worker exec: ' . $workOne['bin'] . ' ' . implode(' ', $workOne['binArgs']), 'info', $this->logSaveFileWorker);
