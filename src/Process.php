@@ -288,9 +288,20 @@ class Process
                 if (!isset($value['bin']) || !isset($value['binArgs'])) {
                     $this->logger->log('config bin/binArgs must be not null!', 'error', $this->logSaveFileWorker);
                 }
-                $queueNum = $this->getCacheData($value['queueNumCacheKey']);
+                // 获取队列的缓存数据
+                $queueCacheData = $this->getCacheData($value['queueNumCacheKey']);
+                if(!$queueCacheData || isset($queueCacheData["total"]) || isset($queueCacheData["update_time"])) {
+                    continue;
+                }
+                
                 $this->dynamicWorkerNum[$value['name']] = isset($this->dynamicWorkerNum[$value['name']]) ? $this->dynamicWorkerNum[$value['name']] : 0;
-                if ($queueNum < $this->queueMaxNum || $this->dynamicWorkerNum[$value['name']] >= $value['dynamicWorkNum']) {
+                if ($queueCacheData["total"] < $this->queueMaxNum || $this->dynamicWorkerNum[$value['name']] >= $value['dynamicWorkNum']) {
+                    continue;
+                }
+                // 由缓存的total和update_time组成的key控制是否需要启动进程(只运行一次)
+                $runOneTimeKey = "sw_process_".$value['name']."_".$queueCacheData["total"]."_".$queueCacheData["update_time"];
+                $runOneTimeRes = $this->getCacheData($runOneTimeKey);
+                if($runOneTimeRes) {
                     continue;
                 }
                 $workOne['bin']   = $value['bin'];
@@ -303,6 +314,8 @@ class Process
                     $this->reserveExec($i, $workOne, self::CHILD_PROCESS_CAN_NOT_RESTART);
                     ++$this->dynamicWorkerNum[$value['name']];
                 }
+
+                $this->setCacheData($runOneTimeKey,1);
             }
         });
     }
@@ -478,6 +491,19 @@ class Process
         }
 
         return false;
+    }
+
+    /**
+     * 设置缓存数据.
+     *
+     * @param string $key
+     *
+     * @return mixed
+     */
+    private function setCacheData($key,$value,$timeout = 3600)
+    {
+        $this->redis = $this->getRedis();
+        return $this->redis->set($key,$value,$timeout);
     }
 
     /**
