@@ -288,9 +288,9 @@ class Process
                 if (!isset($value['bin']) || !isset($value['binArgs'])) {
                     $this->logger->log('config bin/binArgs must be not null!', 'error', $this->logSaveFileWorker);
                 }
-                // 获取队列的缓存数据
+                // 获取队列的缓存数据，根据入队列数量控制动态进程
                 $queueCacheData = $this->getCacheData($value['queueNumCacheKey']);
-                if(!$queueCacheData || isset($queueCacheData["total"]) || isset($queueCacheData["update_time"])) {
+                if(!$queueCacheData || !isset($queueCacheData["total"]) || !isset($queueCacheData["update_time"])) {
                     continue;
                 }
                 
@@ -308,14 +308,13 @@ class Process
                 $workOne['name']  = $value['name'];
                 $workOne['binArgs']= $value['binArgs'];
                 $canStartNum = $value['dynamicWorkNum'] - $this->dynamicWorkerNum[$value['name']];
-
                 //开启多个子进程
                 for ($i = 0; $i < $canStartNum; ++$i) {
                     $this->reserveExec($i, $workOne, self::CHILD_PROCESS_CAN_NOT_RESTART);
                     ++$this->dynamicWorkerNum[$value['name']];
                 }
 
-                $this->setCacheData($runOneTimeKey,1);
+                $this->setCacheData($runOneTimeKey,1,7200);
             }
         });
     }

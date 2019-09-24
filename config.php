@@ -16,11 +16,12 @@ return $config = [
     'processName'      => ':swooleMultiProcess', // 设置进程名, 方便管理, 默认值 swooleTopicQueue
     'sleepTime'        => 3000, // 子进程退出之后，自动拉起暂停毫秒数
     'redis'            => [
-        'host'  => '192.168.179.139',
+        'host'  => '192.168.10.129',
         'port'  => '6379',
         'preKey'=> 'SwooleMultiProcess-',
         //'password'=>'',
         'select' => 0, // 操作库(可选参数，默认0)
+        'serialize' => true, // 是否序列化(可选参数，默认true)
     ],
 
     //exec任务相关,name的名字不能相同
