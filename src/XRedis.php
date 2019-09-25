@@ -118,6 +118,10 @@ class XRedis
         if (!$fd) {
             throw new Exception("Unable to connect to redis host: {$this->config['host']},port: {$this->config['port']}");
         }
+        // 选择数据库0-15
+        if (isset($this->config['select']) && 0 <= $this->config['select'] && $this->config['select'] <= 15) {
+            $this->handler->select($this->config['select']);
+        }
         //统一key前缀
         if (isset($this->config['preKey']) && !empty($this->config['preKey'])) {
             $this->handler->setOption(Redis::OPT_PREFIX, $this->config['preKey']);
