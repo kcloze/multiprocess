@@ -31,8 +31,9 @@ return $config = [
             'bin'              => '/usr/local/php7/bin/php',
             'binArgs'          => ['/mnt/hgfs/www/saletool/think', 'testAmqp', '0'],
             'workNum'          => 1, // 外部程序进程数(固定)
-            'dynamicWorkNum'   => 2, // 外部程序动态进程数,总进程数=固定+动态
-            'queueNumCacheKey' => 'test_mq_queue', // 控制动态进程数队列长度缓存key，注意缓存数据为["total" => 10000,"update_time" => 15812345678]
+            'queueNumCacheKey' => 'test_mq_queue', // 控制动态进程数队列长度缓存key，注意缓存数据为["total" => 10000,"update_time" => 15812345678](可选参数,不设置或为空时只有固定进程)
+            'dynamicWorkNum'   => 2, // 外部程序动态进程数,总进程数=固定+动态(可选参数，设置参数queueNumCacheKey时为必填参数)
+            
         ],
         /* [
             'name'      => 'kcloze-test-1',
